@@ -1,0 +1,22 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+/desktop-resources/
+/release/
+/installers/
+/verification/
+/native-engine/build/
+/native-engine/*.spec
+/.publish-tmp/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.log
+/DEVELOPMENT-PROGRESS.md
+/START HERE.md
+/Open REA.cmd
+/rea.cmd

@@ -1,0 +1,22 @@
+{
+  "name": "rea-studio",
+  "productName": "REA Studio",
+  "version": "1.1.0",
+  "description": "A local reverse-engineering workspace powered by REA",
+  "author": "AmeerBashaK and REA Studio contributors",
+  "license": "AGPL-3.0-only",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "package": "node package.cjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AmeerBashaK/rea-studio.git"
+  }
+}

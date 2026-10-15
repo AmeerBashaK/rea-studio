@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+const {_electron}=require('../rea/node_modules/playwright-core');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+(async()=>{
+ const executablePath=process.env.REA_TEST_EXE||require('electron');
+ const app=await _electron.launch({executablePath,args:process.env.REA_TEST_EXE?[]:[__dirname],timeout:60000});
+ try{
+ const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
+ await page.screenshot({path:path.resolve(__dirname,'../verification/studio-home.png')});
+ const sample=path.resolve(__dirname,'../verification/sample-app');
+ await app.evaluate(({dialog},sample)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[sample]});},sample);
+ await page.click('#openFolder');await page.locator('#targetLabel').filter({hasText:'sample-app'}).waitFor();
+ await page.getByRole('button',{name:'·  index.js',exact:true}).click();
+ await page.locator('#sourceText').filter({hasText:'normalizeQuery'}).waitFor();
+ assert.match(await page.locator('#sourceText').textContent(),/normalizeQuery/);
+ await page.click('[data-tab="workbench"]');await page.click('#runWorkflow');
+ await page.locator('#resultStatus').filter({hasText:'Analysis complete'}).waitFor({timeout:60000});
+ assert.match(await page.locator('#result').textContent(),/Complete/);
+ await page.click('[data-tab="evidence"]');await page.fill('#filter','search');
+ assert.match(await page.locator('#tree').textContent(),/search/);
+ await page.click('[data-tab="workbench"]');
+ await page.locator('#result').scrollIntoViewIfNeeded();
+ await page.screenshot({path:path.resolve(__dirname,'../verification/studio-analysis.png')});
+ const output=path.resolve(__dirname,'../verification/studio-export.json');
+ await app.evaluate(({dialog},output)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:output});},output);
+ await page.click('#export');await page.locator('#toast').filter({hasText:'Evidence exported'}).waitFor();
+ assert.ok(JSON.parse(require('node:fs').readFileSync(output,'utf8')).evidence_id);
+ await page.fill('#command','inspect-artifact --help');await page.click('#runCommand');
+ await page.locator('#result h3').filter({hasText:'Complete · inspect-artifact'}).waitFor({timeout:60000});
+ assert.match(await page.locator('#result').textContent(),/Usage:/);
+ await page.fill('#command','not-a-command');await page.click('#runCommand');
+ await page.locator('#toast').filter({hasText:'Choose a supported REA command'}).waitFor();
+ await page.fill('#command','inspect-artifact "C:\\rea-studio-nonexistent-test-file.exe" --json');await page.click('#runCommand');
+ await page.locator('#resultStatus').filter({hasText:'Needs attention'}).waitFor({timeout:60000});
+ assert.ok(await page.locator('#history button').count()>=2);
+ const nativeFile=path.resolve(__dirname,'../desktop-resources/runtime/node.exe');
+ await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},nativeFile);
+ await page.click('#openFile');await page.locator('#targetLabel').filter({hasText:'node.exe'}).waitFor();
+ await page.click('[data-command="inspect-artifact"]');await page.click('#runWorkflow');
+ await page.locator('#result h3').filter({hasText:'Complete · inspect-artifact'}).waitFor({timeout:60000});
+ await page.fill('#command','inspect-managed-artifact "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe" --json');await page.click('#runCommand');
+ await page.locator('#result h3').filter({hasText:'Complete · inspect-managed-artifact'}).waitFor({timeout:60000});
+ const largeTarget=path.resolve(__dirname,'../rea/src');
+ await page.fill('#command','analyze-javascript-application "'+largeTarget+'" --json');await page.click('#runCommand');
+ await page.locator('#cancel:not([disabled])').waitFor();await page.click('#cancel');
+ await page.locator('#resultStatus').filter({hasText:'Stopped'}).waitFor({timeout:30000});
+ await page.reload();await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
+ await page.locator('#history button').first().waitFor();
+ assert.deepEqual(errors,[]);console.log('PASS: app startup, engine, file dialog, explorer, source preview, real analysis, evidence filter, export, command help.');
+ }finally{await app.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

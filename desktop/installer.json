@@ -1,0 +1,21 @@
+{
+  "appId": "local.rea.studio",
+  "productName": "REA Studio",
+  "directories": {"output": "../installers"},
+  "artifactName": "REA-Studio-Setup-${version}-${arch}.${ext}",
+  "compression": "normal",
+  "win": {"target": [{"target":"nsis","arch":["x64"]}], "icon":"icon.ico", "signAndEditExecutable":false},
+  "nsis": {
+    "oneClick":false,
+    "perMachine":false,
+    "allowToChangeInstallationDirectory":true,
+    "createDesktopShortcut":true,
+    "createStartMenuShortcut":true,
+    "shortcutName":"REA Studio",
+    "uninstallDisplayName":"REA Studio",
+    "installerIcon":"icon.ico",
+    "uninstallerIcon":"icon.ico",
+    "runAfterFinish":false,
+    "deleteAppDataOnUninstall":false
+  }
+}
