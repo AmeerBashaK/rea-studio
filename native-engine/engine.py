@@ -165,7 +165,8 @@ def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30,
     limitations = ["Function boundaries and code discovery are conservative candidates, not complete recovery.",
                    "Indirect branches, jump tables, exception flow and obfuscated code are not resolved.",
                    "This engine provides assembly, not decompiled source, and never executes the target.",
-                   "References describe decoded operands, not proven runtime access or execution."]
+                   "References describe decoded operands, not proven runtime access or execution.",
+                   "UD0/UD1 trap encodings are unsupported; affected paths stop at a reported decode failure."]
     cutoffs = []
     # Parse only directories used by this engine; never request broad unbounded directory analysis.
     pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_IMPORT'], pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_EXPORT']])
@@ -264,7 +265,9 @@ def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30,
                     break
                 offset, available = located
                 ins = next(decoder.disasm(image.data[offset:offset + min(15, available)], cursor, count=1), None)
-                if ins is None:
+                # Capstone 5 can truncate UD0/UD1 before their ModRM operand.
+                # Do not invent a boundary or follow bytes after a disputed trap.
+                if ins is None or ins.mnemonic in ("ud0", "ud1"):
                     decode_failures.append(hx(cursor))
                     break
                 byte_range = range(cursor, cursor + ins.size)

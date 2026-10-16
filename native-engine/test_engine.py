@@ -106,6 +106,15 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(focused['scope']['requested_address'], '0x140001000')
             self.assertEqual(focused['functions'][0]['address'], '0x140001000')
 
+    def test_disputed_ud_traps_stop_without_fake_boundaries(self):
+        for bits in (32,64):
+            for code in ('0fb9c0c3', '0fffc0c3'):
+                with self.subTest(bits=bits,code=code):
+                    result=self.run_bytes(fixture(bits,bytes.fromhex(code)))
+                    function=result['functions'][0]
+                    self.assertEqual(function['instructions'],[])
+                    self.assertEqual(function['decode_failures'],[function['address']])
+
     def test_x64_calls_and_branches(self):
         r = self.run_bytes(fixture())
         self.assertEqual(r['subject']['architecture'], 'x64')

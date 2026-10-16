@@ -47,4 +47,12 @@ Install `requirements-test.txt` in the development virtual environment and run `
 
 The differential suite covers the x86/x64 call fixtures, 80 deterministic arithmetic/short-branch programs (880 instructions), indirect/IP-relative examples, and retained instructions from Windows kernel32.dll when available. The Windows case is explicitly skipped on other hosts. CI installs the test dependency and runs both suites. Reference: [iced-x86 Python package and API examples](https://pypi.org/project/iced-x86/).
 
-Agreement between two decoders does not establish complete function recovery, execution semantics, or resistance to obfuscation. The corpus is not exhaustive. Compiler-generated optimization variants remain pending; the development PC currently has no Clang/MSVC toolchain found in PATH or the standard installation locations checked.
+Agreement between two decoders does not establish complete function recovery, execution semantics, or resistance to obfuscation. The corpus is not exhaustive. Compiler-generated optimization variants are covered by the separate optional suite below.
+
+## Compiler-generated corpus
+
+Install `requirements-corpus.txt` to add the pinned development-only Zig/Clang 0.13.0 toolchain, then run `python -m unittest test_compiler_corpus -v`. The suite compiles `corpus/control_flow.c` for Windows x86 and x64 using the MSVC ABI at `-O0`, `-O2`, and `-Os`. It does not execute the outputs. Each build retains compiler version, complete flags, source hash and output hash under ignored `verification/compiler-*` directories. A separate CI job runs this suite.
+
+Checks cover recovery of six known exported entries (arithmetic, branches/calls, loop, switch, indirect callback, entry), independent decoding of retained instructions, and unresolved indirect control flow. These fixtures do not establish semantic equivalence or complete optimized-code recovery. The compiler is never bundled with the application.
+
+This corpus exposed Capstone 5's truncated UD0/UD1 trap decoding. Studio Native now stops those paths and records decode failures rather than emitting an incorrect boundary or following trap operand bytes as instructions. UD0/UD1 remain unsupported, not silently repaired. The full local native suite comprises 29 tests when corpus dependencies are installed.

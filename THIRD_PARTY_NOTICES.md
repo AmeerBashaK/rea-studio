@@ -18,3 +18,5 @@ Public binary releases must include the original license files and required sour
 
 
 Development-only differential tests use iced-x86 1.21.0 (MIT), pinned in `native-engine/requirements-test.txt`; see [upstream package](https://pypi.org/project/iced-x86/). It is not part of the production native worker or redistributed application runtime.
+
+The optional compiler corpus uses the pinned `ziglang` 0.13.0 development package and its bundled compiler/toolchain notices. It is not redistributed in the application. See [Zig 0.13.0](https://ziglang.org/download/0.13.0/release-notes.html).
