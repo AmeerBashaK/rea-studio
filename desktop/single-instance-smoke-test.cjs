@@ -7,8 +7,8 @@ const assert=require('node:assert/strict');
 (async()=>{
  const folder=await fs.mkdtemp(path.resolve(__dirname,'../verification/single-instance-'));
  const profile=path.join(folder,'profile');
- const executablePath=require('electron');
- const args=[__dirname,'--user-data-dir='+profile];
+ const executablePath=process.env.REA_TEST_EXE||require('electron');
+ const args=[...(process.env.REA_TEST_EXE?[]:[__dirname]),'--user-data-dir='+profile];
  let app,other,duplicate;
  try{
   app=await _electron.launch({executablePath,args,timeout:60000});
@@ -43,7 +43,7 @@ const assert=require('node:assert/strict');
   const notes=await page.evaluate(id=>window.rea.annotations(id),id);
   assert.equal(notes['0x140001000'].comment,'unsaved note survives duplicate launch');
   // A separate profile must remain usable for isolated tests and workspaces.
-  other=await _electron.launch({executablePath,args:[__dirname,'--user-data-dir='+path.join(folder,'other-profile')],timeout:60000});
+  other=await _electron.launch({executablePath,args:[...(process.env.REA_TEST_EXE?[]:[__dirname]),'--user-data-dir='+path.join(folder,'other-profile')],timeout:60000});
   await (await other.firstWindow()).locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
   assert.equal(await app.evaluate(()=>global.secondLaunches),1);
   await other.close();other=null;

@@ -4,7 +4,7 @@ const path=require('node:path'),fs=require('node:fs/promises'),{spawn}=require('
 (async()=>{
  const folder=await fs.mkdtemp(path.resolve(__dirname,'../verification/large-native-'));
  const target=process.execPath;
- const app=await _electron.launch({executablePath:require('electron'),args:[__dirname,'--user-data-dir='+path.join(folder,'profile')],timeout:60000});
+ const app=await _electron.launch({executablePath:process.env.REA_TEST_EXE||require('electron'),args:[...(process.env.REA_TEST_EXE?[]:[__dirname]),'--user-data-dir='+path.join(folder,'profile')],timeout:60000});
  const stop=path.join(folder,'stop'),report=path.join(folder,'memory.json');
  const sampler=spawn(path.resolve(__dirname,'../native-engine/.venv/Scripts/python.exe'),[path.resolve(__dirname,'../native-engine/sample_process_memory.py'),String(app.process().pid),report,stop],{windowsHide:true,stdio:['ignore','pipe','pipe']});
  let samplerError='';sampler.stderr.on('data',b=>samplerError+=b);

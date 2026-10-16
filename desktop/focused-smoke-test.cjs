@@ -8,7 +8,7 @@ const assert=require('node:assert/strict');
  const sample=path.join(folder,'sample.exe');
  const bytes=await fs.readFile(path.resolve(__dirname,'../verification/native-x64.exe'));
  await fs.writeFile(sample,bytes);
- const app=await _electron.launch({executablePath:require('electron'),args:[__dirname,'--user-data-dir='+path.join(folder,'profile')],timeout:60000});
+ const app=await _electron.launch({executablePath:process.env.REA_TEST_EXE||require('electron'),args:[...(process.env.REA_TEST_EXE?[]:[__dirname]),'--user-data-dir='+path.join(folder,'profile')],timeout:60000});
  try{
   const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});

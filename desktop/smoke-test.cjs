@@ -4,7 +4,8 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 (async()=>{
  const executablePath=process.env.REA_TEST_EXE||require('electron');
- const app=await _electron.launch({executablePath,args:process.env.REA_TEST_EXE?[]:[__dirname],timeout:60000});
+ const profile=await require('node:fs/promises').mkdtemp(path.resolve(__dirname,'../verification/legacy-profile-'));
+ const app=await _electron.launch({executablePath,args:[...(process.env.REA_TEST_EXE?[]:[__dirname]),'--user-data-dir='+profile],timeout:60000});
  try{
  const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
