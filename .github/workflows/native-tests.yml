@@ -10,8 +10,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r native-engine/requirements.txt
-      - run: python -m unittest test_engine -v
+      - run: python -m pip install -r native-engine/requirements-test.txt
+      - run: python -m unittest test_engine test_differential -v
         working-directory: native-engine
 
   storage-tests:

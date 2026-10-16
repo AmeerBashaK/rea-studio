@@ -15,3 +15,6 @@ The root AGPL grant applies to original REA Studio material, not to these compon
 Dependency versions are recorded in `desktop/package-lock.json`, `native-engine/requirements.txt`, and the pinned upstream repository. Their individual licenses remain applicable. This table is an overview, not a substitute for the full notices of every transitive dependency.
 
 Public binary releases must include the original license files and required source/notices for bundled components. Do not assume that the root AGPL license replaces dependency obligations or retroactively changes upstream licenses.
+
+
+Development-only differential tests use iced-x86 1.21.0 (MIT), pinned in `native-engine/requirements-test.txt`; see [upstream package](https://pypi.org/project/iced-x86/). It is not part of the production native worker or redistributed application runtime.

@@ -40,3 +40,11 @@ The Python worker accepts `--address HEX_VIRTUAL_ADDRESS --expected-sha256 ORIGI
 Focused results identify their scope and skip string scanning. Calls produce references and seeds without decoding additional functions. The bounded `seeds` inventory reports whether each candidate was analyzed in this run. The full file is still read and hashed, and PE metadata is parsed; this is not a persistent cache.
 
 The development desktop exposes these additions through Analyze address and has been tested against a rebuilt worker. The installed 1.1.0 application has not been upgraded. All 20 source regression tests pass, including focused x86/x64 decoding, input replacement, hash and mapping validation, and call-following boundaries.
+
+## Independent decoder checks
+
+Install `requirements-test.txt` in the development virtual environment and run `python -m unittest test_engine test_differential -v` from this directory. The test-only iced-x86 1.21.0 dependency independently checks decoded instruction boundaries, direct branch/call targets, unresolved indirect targets, return successors, and emitted IP-relative memory references. It is not used by the production worker.
+
+The differential suite covers the x86/x64 call fixtures, 80 deterministic arithmetic/short-branch programs (880 instructions), indirect/IP-relative examples, and retained instructions from Windows kernel32.dll when available. The Windows case is explicitly skipped on other hosts. CI installs the test dependency and runs both suites. Reference: [iced-x86 Python package and API examples](https://pypi.org/project/iced-x86/).
+
+Agreement between two decoders does not establish complete function recovery, execution semantics, or resistance to obfuscation. The corpus is not exhaustive. Compiler-generated optimization variants remain pending; the development PC currently has no Clang/MSVC toolchain found in PATH or the standard installation locations checked.
