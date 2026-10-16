@@ -56,3 +56,8 @@ Install `requirements-corpus.txt` to add the pinned development-only Zig/Clang 0
 Checks cover recovery of six known exported entries (arithmetic, branches/calls, loop, switch, indirect callback, entry), independent decoding of retained instructions, and unresolved indirect control flow. These fixtures do not establish semantic equivalence or complete optimized-code recovery. The compiler is never bundled with the application.
 
 This corpus exposed Capstone 5's truncated UD0/UD1 trap decoding. Studio Native now stops those paths and records decode failures rather than emitting an incorrect boundary or following trap operand bytes as instructions. UD0/UD1 remain unsupported, not silently repaired. The full local native suite comprises 29 tests when corpus dependencies are installed.
+
+
+### Desktop resource attribution
+
+Run `node desktop/large-native-smoke-test.cjs` from the repository root for an isolated-profile large-input/navigation/reload/export check. The Windows sampler records process-tree totals plus per-process sampled working set/private bytes and kernel+user CPU deltas. CPU identities include process creation time to avoid combining reused PIDs. CPU deltas cover only first-to-last observation of each process: startup, final work and short-lived children can be missed. They are not CPU utilization or exact whole-session CPU totals. Per-process memory maxima occur at different times and must not be added as a simultaneous peak. Tree working sets can double-count shared pages. Reports under `verification/large-native-*` include the target hash; sampling starts after Electron launch and caches are uncontrolled.

@@ -44,7 +44,9 @@ const path=require('node:path'),fs=require('node:fs/promises'),{spawn}=require('
   await fs.writeFile(stop,'stop');await sampled;
   const memory=JSON.parse(await fs.readFile(report,'utf8'));
   assert.ok(memory.samples>0&&memory.maximum_process_count>=2);
-  const result={target:'Node executable',inputBytes:(await fs.stat(target)).size,functions:count,instructions:evidence.coverage.instructions,elapsedMs:elapsed,...memory};
+  assert.ok(memory.observed_cpu_ms>0);
+  assert.ok(memory.process_summaries.some(p=>p.name==='studio-native.exe'&&p.observed_cpu_ms>0));
+  const result={target:'Node executable',sha256:evidence.subject.sha256,inputBytes:(await fs.stat(target)).size,functions:count,instructions:evidence.coverage.instructions,elapsedMs:elapsed,...memory};
   await fs.writeFile(path.join(folder,'verification.json'),JSON.stringify(result,null,2));
   console.log(JSON.stringify({...result,rows:undefined}));
  }finally{try{await fs.writeFile(stop,'stop');await sampled;}finally{await app.close();}}
