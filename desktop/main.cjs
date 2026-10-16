@@ -6,6 +6,15 @@ const {promisify}=require('node:util');
 const exec=promisify(execFile);
 app.setAppUserModelId('local.rea.studio');
 let win,root=null,target=null,active=null;
+// A profile has one writer for analysis history and project annotations.
+const primaryInstance=app.requestSingleInstanceLock();
+if(!primaryInstance)app.quit();
+app.on('second-instance',()=>{
+  if(win&&!win.isDestroyed()){
+    if(win.isMinimized())win.restore();
+    win.show();win.focus();
+  }
+});
 const engine=app.isPackaged?path.join(process.resourcesPath,'engine'):path.resolve(__dirname,'../rea');
 const node=app.isPackaged?path.join(process.resourcesPath,'runtime','node.exe'):'C:\\Program Files\\nodejs\\node.exe';
 const cli=path.join(engine,'scripts','rea.mjs');
@@ -27,6 +36,7 @@ async function confined(relative){
 async function record(id){return results().view(id);}
 async function cancel(){if(active&&active.child.exitCode===null&&active.child.signalCode===null){active.cancelled=true;if(active.child.pid)await exec('taskkill.exe',['/PID',String(active.child.pid),'/T','/F'],{windowsHide:true}).catch(()=>{});}}
 app.whenReady().then(async()=>{
+  if(!primaryInstance)return;
   await fs.mkdir(store(),{recursive:true});
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {label:'File',submenu:[{label:'Open folder…',accelerator:'CmdOrCtrl+O',click:()=>emit({type:'open'})},{type:'separator'},{role:'quit'}]},

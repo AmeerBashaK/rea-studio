@@ -8,9 +8,9 @@ Native x86/x64 PE loading, assembly, function candidates, direct references, imp
 
 ## 2. Scalable analysis projects — in progress
 
-Development source now supports hash-checked focused decoding, separate saved results with parent links, cancellation/restart, and paginated candidate browsing. Engine and desktop regression tests passed. This increment is not in the installed 1.1.0 release. Full-file hashing/metadata parsing still occurs; paged project storage and bounded result loading remain unfinished.
+Development source now supports hash-checked focused decoding, parent-linked results, cancellation/restart, chunked storage, on-demand function loading, paginated references/candidates, connected graphs, back/forward navigation and persistent bookmarks. Independent-decoder and six compiler-generated fixture checks pass. Duplicate launches of the same profile restore the original window, preserving unsaved notes and keeping annotation writes in one process. These changes are not in installed 1.1.0. Full-file hashing/metadata parsing and initial worker-output buffering remain. Release work still includes memory investigation, CPU measurement, better reference search and packaged acceptance tests.
 
-- Decode a requested address/function without scanning the whole binary again. Verify the input hash matches the project before interpreting stored addresses.
+- Decode a requested address/function without repeating whole-image instruction discovery; full-file hashing and metadata parsing still occur. Verify the input hash matches the project before interpreting stored addresses.
 - Persist versioned projects and paginate instructions/references instead of retaining increasingly large JSON graphs in renderer memory.
 - Browse all retained seeds with explicit coverage; distinguish known seeds from analyzed functions. Allow users to expand coverage without hiding initial limits.
 - Connected graph layout, navigation back/forward, bookmarks, and better reference search.
