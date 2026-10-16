@@ -26,6 +26,7 @@ const emit=data=>{if(win&&!win.isDestroyed())win.webContents.send('event',data);
 const blocked=new Set(['setup','update','uninstall','mcp','completions']);
 let commands=[];
 async function call(args){return (await exec(node,[cli,...args],{cwd:engine,windowsHide:true,maxBuffer:8*1024*1024})).stdout;}
+const engineInfo=require('./engine-info.cjs').createEngineInfo(call);
 async function confined(relative){
   if(!root)throw Error('Open a folder or file first.');
   const resolved=await fs.realpath(path.resolve(root,relative||'.'));
@@ -52,7 +53,7 @@ app.whenReady().then(async()=>{
 app.on('window-all-closed',()=>app.quit());
 ipcMain.handle('info',async()=>{
   let help='',version='unavailable';
-  try{help=await call(['--help']);version=(await call(['--version'])).trim();}catch{}
+  try{({help,version}=await engineInfo());}catch{}
   commands=[...help.matchAll(/^  ([a-z][a-z0-9-]+)\s{2,}(.+)$/gm)].map(m=>({name:m[1],description:m[2]})).filter(c=>!blocked.has(c.name));
   const nativeAvailable=await fs.access(nativeBinary).then(()=>true,()=>false);
   if(nativeAvailable)commands.unshift({name:'native-analyze',description:'Built-in x86/x64 PE disassembly, functions and references'});
