@@ -113,11 +113,23 @@ function renderNative(){
  return;
  }
  if(nativeMode==='graph'){
- const graph=el('div','block-graph');const byAddress=new Map(f.instructions.map(i=>[i.address,i]));
- for(const block of f.blocks){const card=el('article','basic-block');card.append(el('h3','',block.address));
- const pre=el('pre');pre.textContent=block.instructions.slice(0,12).map(addr=>{const i=byAddress.get(addr);return `${i.mnemonic.padEnd(8)} ${i.operands}`;}).join('\n');if(block.instructions.length>12)pre.textContent+='\n… '+(block.instructions.length-12)+' more instructions';card.append(pre);
- const edges=el('div','block-edges');if(!block.edges.length)edges.append(el('span','','■ return / stop'));for(const edge of block.edges)edges.append(addressButton(edge.target,`${edge.kind==='branch'?'↗':'↓'} ${edge.kind}: ${edge.target||'unresolved'}`));card.append(edges);graph.append(card);}
- out.append(el('p','native-note','Basic blocks and their outgoing edges. Click a destination to inspect its instructions.'),graph);return;
+ const layout=layoutBlocks(f.blocks),graph=el('div','block-graph connected-graph'),byAddress=new Map(f.instructions.map(i=>[i.address,i]));
+ graph.style.width=layout.width+'px';graph.style.height=layout.height+'px';
+ const svgNode=(name,attrs={})=>{const node=document.createElementNS('http://www.w3.org/2000/svg',name);for(const [key,value]of Object.entries(attrs))node.setAttribute(key,value);return node;};
+ const svg=svgNode('svg',{width:layout.width,height:layout.height,class:'graph-connections','aria-label':'Control-flow connections'});
+ const defs=svgNode('defs');
+ for(const [kind,color]of [['branch','#c4a7ff'],['fallthrough','#78d6c6']]){const marker=svgNode('marker',{id:'arrow-'+kind,viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'});marker.append(svgNode('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker);}
+ svg.append(defs);
+ for(const edge of layout.edges){if(!edge.path)continue;const line=svgNode('path',{d:edge.path,class:'graph-edge '+edge.kind,fill:'none','stroke-width':'2','marker-end':'url(#arrow-'+edge.kind+')',tabindex:'0',role:'button','aria-label':edge.kind+' from '+edge.source+' to '+edge.target});const title=svgNode('title');title.textContent=edge.kind+': '+edge.source+' → '+edge.target;line.append(title);line.onclick=()=>navigateNative(edge.target);line.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();navigateNative(edge.target);}};svg.append(line);}
+ graph.append(svg);
+ const blocks=new Map(f.blocks.map(b=>[b.address,b]));
+ for(const node of layout.nodes){const block=blocks.get(node.address),card=el('article','basic-block');card.style.left=node.x+'px';card.style.top=node.y+'px';card.style.height=node.height+'px';card.append(el('h3','',block.address));
+ const pre=el('pre');pre.textContent=block.instructions.slice(0,8).map(addr=>{const i=byAddress.get(addr);return `${i.mnemonic.padEnd(8)} ${i.operands}`;}).join('\n');if(block.instructions.length>8)pre.textContent+='\n… '+(block.instructions.length-8)+' more instructions';card.append(pre);
+ const edges=el('div','block-edges');if(!block.edges.length)edges.append(el('span','','■ return / stop'));
+ for(const edge of block.edges){const visible=layout.nodes.some(n=>n.address===edge.target);edges.append(addressButton(edge.target,`${edge.kind}: ${edge.target||'unresolved'}${edge.target&&!visible?' (outside view)':''}`));}
+ card.append(edges);graph.append(card);}
+ const zoomControls=el('div','assembly-pagination');let zoom=1;const setZoom=value=>{zoom=Math.max(.1,Math.min(2,value));graph.style.zoom=String(zoom);zoomLabel.textContent=Math.round(zoom*100)+'%';};const zoomLabel=el('span','','100%');for(const [label,action]of [['−',()=>setZoom(zoom/1.25)],['+',()=>setZoom(zoom*1.25)],['100%',()=>setZoom(1)],['Fit graph',()=>setZoom(Math.min((out.clientWidth-30)/layout.width,Math.max(100,out.clientHeight-100)/layout.height))]]){const button=el('button','',label);button.onclick=action;zoomControls.append(button);}zoomControls.append(zoomLabel);
+ out.append(zoomControls,el('p','native-note',`Purple arrows: branches. Green arrows: fallthrough. Click an arrow or destination to inspect instructions. ${layout.nodes.length} blocks shown${layout.omitted?' · '+layout.omitted+' omitted by the 120-block display limit':''}. Unresolved and outside-view targets remain labeled on each block.`),graph);return;
  }
  const pages=Math.max(1,Math.ceil(f.instructions.length/nativePageSize));nativePage=Math.min(nativePage,pages-1);
  const controls=el('div','assembly-pagination');const prev=el('button','','← Previous');prev.disabled=!nativePage;prev.onclick=()=>{nativePage--;renderNative();};const next=el('button','','Next →');next.disabled=nativePage>=pages-1;next.onclick=()=>{nativePage++;renderNative();};controls.append(prev,el('span','',`Page ${nativePage+1} / ${pages} · ${f.instructions.length} instructions`),next);out.append(controls);

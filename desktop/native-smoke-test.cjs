@@ -16,6 +16,16 @@ const path=require('node:path');const assert=require('node:assert/strict');
  await page.fill('#annotationName','entry_reviewed');await page.fill('#annotationComment','Verified call to the helper returning 42.');await page.click('#saveAnnotation');
  await page.locator('#toast').filter({hasText:'Function name and notes saved'}).waitFor();
  await page.click('[data-native-mode="graph"]');assert.ok(await page.locator('.basic-block').count()>=3);
+ assert.ok(await page.locator('.graph-edge').count()>=2);
+ await page.getByRole('button',{name:'Fit graph',exact:true}).click();
+ assert.ok(await page.locator('.connected-graph').evaluate(n=>Number(n.style.zoom))<1);
+ await page.locator('#nativeContent').screenshot({path:path.resolve(__dirname,'../verification/studio-connected-graph.png')});
+ await page.getByRole('button',{name:'100%',exact:true}).click();
+ const arrow=page.locator('.graph-edge').first(),destination=(await arrow.getAttribute('aria-label')).split(' to ')[1];
+ await arrow.focus();await arrow.press('Enter');await page.waitForFunction(address=>nativeLocation===address,destination);
+ assert.equal(await page.evaluate(()=>nativeMode),'assembly');
+ await page.click('#nativeBack');await page.waitForFunction(()=>nativeMode==='graph');
+
  await page.click('[data-native-mode="references"]');assert.match(await page.locator('#nativeContent').textContent(),/0x140001020/);
  await page.fill('#nativeAddress','140001020');await page.click('#nativeGo');
  assert.match(await page.locator('#nativeContent').textContent(),/0x2a/);

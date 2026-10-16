@@ -66,3 +66,9 @@ One local run on the 92,825,416-byte Node executable retained 256 candidates and
 Use **Bookmark** beside Save to mark the selected decoded function. **Show bookmarks only** filters the current candidate list. Bookmarks are saved with names/notes under the binary's SHA-256 identity and survive reload and other analyses of identical bytes. Removing a bookmark preserves names and comments. Bookmarking does not save or discard unsubmitted text in the annotation fields.
 
 The filter covers candidates retained in the currently opened result, not a global address inventory. Bookmark/annotation writes are serialized within one running app process and written through a temporary file; simultaneous edits in multiple app instances are not yet coordinated. Focused desktop tests cover bookmarking, filter behavior, reload, removal and concurrent note/bookmark updates.
+
+## Connected control-flow graph (development source)
+
+The Graph view lays out retained basic blocks and draws arrowed connections: purple branches and green fallthrough paths. Arrows support mouse activation and Enter/Space to inspect the destination in assembly; Back returns to the graph. Zoom controls include Fit graph and 100%. Unresolved or outside-view destinations stay labeled in each block.
+
+Rendering is limited to the first 120 blocks and eight preview instructions per block, with explicit omission counts. This is a deterministic breadth-first layout, not a full graph optimizer; dense graphs can still have crossing edges. The complete saved instructions and block evidence remain in exports. Three layout tests cover diamonds/joins, loops, nonoverlapping cards, unresolved targets and the display cap; native desktop tests cover arrow keyboard navigation, fit-to-view and return navigation.
