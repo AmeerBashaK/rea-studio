@@ -10,6 +10,8 @@ const engine=app.isPackaged?path.join(process.resourcesPath,'engine'):path.resol
 const node=app.isPackaged?path.join(process.resourcesPath,'runtime','node.exe'):'C:\\Program Files\\nodejs\\node.exe';
 const cli=path.join(engine,'scripts','rea.mjs');
 const nativeBinary=app.isPackaged?path.join(process.resourcesPath,'studio-native','studio-native.exe'):path.resolve(__dirname,'../desktop-resources/studio-native/studio-native.exe');
+const {ResultStore}=require('./result-store.cjs');
+const results=()=>new ResultStore(store());
 const store=()=>path.join(app.getPath('userData'),'analyses');
 const emit=data=>{if(win&&!win.isDestroyed())win.webContents.send('event',data);};
 const blocked=new Set(['setup','update','uninstall','mcp','completions']);
@@ -22,7 +24,7 @@ async function confined(relative){
   if(rel.startsWith('..')||path.isAbsolute(rel))throw Error('This file is outside the open workspace.');
   return resolved;
 }
-async function record(id){if(!/^[0-9a-f-]{36}$/.test(id))throw Error('Invalid analysis ID');return JSON.parse(await fs.readFile(path.join(store(),id+'.json'),'utf8'));}
+async function record(id){return results().read(id);}
 async function cancel(){if(active&&active.child.exitCode===null&&active.child.signalCode===null){active.cancelled=true;if(active.child.pid)await exec('taskkill.exe',['/PID',String(active.child.pid),'/T','/F'],{windowsHide:true}).catch(()=>{});}}
 app.whenReady().then(async()=>{
   await fs.mkdir(store(),{recursive:true});
@@ -83,7 +85,7 @@ async function runAnalysis(args,focus=null){
     if(watchdog)clearTimeout(watchdog);
     let data=null;try{data=JSON.parse(stdout);}catch{}
     const item={id,parentId:focus?.parentId||null,requestedAddress:focus?.address||null,started,finished:new Date().toISOString(),args,target:runTarget,code,cancelled:job.cancelled,data,stdout,stderr,error:timedOut?'Native analysis exceeded the 90-second worker limit.':overflow?'Result exceeded the 32 MB desktop limit. Narrow the command scope.':spawnError};
-    try{await fs.writeFile(path.join(store(),id+'.json'),JSON.stringify(item));await fs.writeFile(path.join(store(),id+'.meta'),JSON.stringify({id,started,args,code,cancelled:job.cancelled}));}catch(e){item.error+=' Could not save history: '+e.message;}
+    try{await results().save(item);if(data?.schema==='studio-native/1')item.stdout='';await fs.writeFile(path.join(store(),id+'.meta'),JSON.stringify({id,started,args,code,cancelled:job.cancelled}));}catch(e){item.error+=' Could not save history: '+e.message;}
     active=null;emit({type:'done',item});
   });
   return {id};
@@ -91,12 +93,12 @@ async function runAnalysis(args,focus=null){
 ipcMain.handle('run',(_e,args)=>runAnalysis(args));
 ipcMain.handle('focus',async(_e,{id,address})=>{
   if(typeof address!=='string'||!/^0x[0-9a-f]{1,16}$/i.test(address))throw Error('Enter a valid hexadecimal virtual address.');
-  const item=await record(id);
+  const item=await results().summary(id);
   if(item.code!==0||item.cancelled||item.error||item.data?.schema!=='studio-native/1'||!/^[a-f0-9]{64}$/.test(item.data.subject?.sha256)||typeof item.data.subject.path!=='string')throw Error('Select a successful native analysis first.');
   return runAnalysis(['native-analyze',item.data.subject.path],{parentId:id,address,sha256:item.data.subject.sha256});
 });
 async function annotationPath(id){
-  const item=await record(id);
+  const item=await results().summary(id);
   if(item.data?.schema!=='studio-native/1'||!/^[a-f0-9]{64}$/.test(item.data.subject.sha256))throw Error('This result does not support native annotations.');
   const dir=path.join(app.getPath('userData'),'projects');await fs.mkdir(dir,{recursive:true});
   return {file:path.join(dir,item.data.subject.sha256+'.json'),item};
@@ -117,9 +119,10 @@ ipcMain.handle('history',async()=>{
   for(const n of names){try{const meta=path.join(store(),n.replace(/\.json$/,'.meta'));let v;try{v=JSON.parse(await fs.readFile(meta,'utf8'));}catch{const old=JSON.parse(await fs.readFile(path.join(store(),n),'utf8'));v={id:old.id,started:old.started,args:old.args,code:old.code,cancelled:old.cancelled};await fs.writeFile(meta,JSON.stringify(v));}rows.push(v);}catch{}}
   return rows.filter(Boolean).sort((a,b)=>b.started.localeCompare(a.started)).slice(0,50);
 });
+ipcMain.handle('native-page',(_e,{id,...options})=>results().page(id,options));
 ipcMain.handle('result',(_e,id)=>record(id));
 ipcMain.handle('export',async(_e,id)=>{
-  const item=await record(id),out=await dialog.showSaveDialog(win,{defaultPath:'rea-'+item.args[0]+'.json',filters:[{name:'JSON evidence',extensions:['json']}]});
+  const item=await results().summary(id),out=await dialog.showSaveDialog(win,{defaultPath:'rea-'+item.args[0]+'.json',filters:[{name:'JSON evidence',extensions:['json']}]});
   if(out.canceled)return false;
-  await fs.writeFile(out.filePath,item.stdout||JSON.stringify(item,null,2));return true;
+  await results().export(id,out.filePath);return true;
 });

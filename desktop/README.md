@@ -39,3 +39,11 @@ The focused result does not rescan strings. The installed 1.1.0 app does not inc
 Choose **Show all discovered candidates** to browse the retained seed inventory, including entries not decoded in the current result. Lists display 100 entries per page and support search. Selecting an undecoded candidate fills the address field; Analyze address performs the explicit decode. Pagination limits visible rows, not the in-memory result or on-disk project size.
 
 `node focused-smoke-test.cjs` uses a separate test profile and copied fixture to verify changed-file rejection, cancellation of the real worker, restart, original-result preservation, candidate selection, and reload. It requires the generated `verification/native-x64.exe` fixture and a rebuilt native worker. Test artifacts are saved under an ignored `verification/focused-*` directory.
+
+## Result storage (development source)
+
+New native results use a versioned manifest, one file per function, and reference chunks of 200 entries. The manifest is published after its parts are written, and raw stdout is not stored a second time alongside native evidence. Existing JSON-only history remains readable without rewriting it. Focused parent links and hash-keyed notes are preserved.
+
+The main process exposes bounded function-summary, instruction, and reference pages (maximum 200 rows per request). Instruction paging currently reads one bounded function record; it does not load every function. Native exports stream the stored parts and replace the destination only after successful completion. Opening a result in the current renderer still reconstructs its full data, and initial worker output is still buffered. This storage increment does not yet establish bounded whole-app memory or complete scalable-project support.
+
+Run `node --test result-store.test.cjs` to check old/new history, cross-chunk pages, export equality, incomplete records, invalid requests, and failed-export preservation. The test output directory `../verification` must exist.
