@@ -31,6 +31,10 @@ const path=require('node:path'),fs=require('node:fs/promises'),{spawn}=require('
   await page.click('[data-native-mode="references"]');await page.getByRole('button',{name:'Next references',exact:false}).waitFor();
   const id=await page.evaluate(()=>current.id),first=await page.evaluate(()=>current.data.functions[0].address);
   await page.fill('#nativeAddress',first);await page.click('#nativeGo');await page.waitForFunction(address=>nativeFunction?.address===address,first);
+  await page.click('#nativeBack');await page.waitForFunction(address=>nativeFunction?.address===address,last);
+  assert.equal(await page.evaluate(()=>nativeMode),'references');assert.equal(await page.evaluate(()=>nativeListPage),2);
+  await page.click('#nativeForward');await page.waitForFunction(address=>nativeFunction?.address===address,first);
+
   await page.reload();await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
   await page.locator('#history button').first().click();assert.equal(await page.evaluate(()=>current.id),id);
   const exported=path.join(folder,'export.json');await app.evaluate(({dialog},file)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:file});},exported);

@@ -4,8 +4,22 @@ let nativeResult=null,nativeFunction=null,nativeNotes={},nativeMode='assembly',n
 const nativePageSize=150;
 let nativeSeeds=false,nativeListPage=0,nativeSelection=0,nativeRender=0,nativeReferencePage=0;
 const nativeListSize=100;
+let nativeTrail=[],nativeTrailIndex=-1,nativeLocation=null;
+function rememberNativeView(){
+ if(nativeTrailIndex>=0&&nativeFunction)nativeTrail[nativeTrailIndex]={index:nativeResult.data.functions.findIndex(f=>f.address===nativeFunction.address),address:nativeLocation||nativeFunction.address,mode:nativeMode,page:nativePage,referencePage:nativeReferencePage,listPage:nativeListPage};
+}
+function nativeHistoryButtons(){
+ if(!$('#nativeBack'))return;
+ $('#nativeBack').disabled=nativeTrailIndex<=0;
+ $('#nativeForward').disabled=nativeTrailIndex<0||nativeTrailIndex>=nativeTrail.length-1;
+}
+async function moveNativeHistory(delta){
+ const position=nativeTrailIndex+delta;if(position<0||position>=nativeTrail.length)return;
+ rememberNativeView();const saved={...nativeTrail[position]};await selectNative(saved.index,saved.address,{restore:saved,position});
+}
 function nativeTitle(f){return nativeNotes[f.address]?.name||f.name;}
 async function loadNative(item){
+ nativeTrail=[];nativeTrailIndex=-1;nativeLocation=null;nativeHistoryButtons();
  nativeResult=item;nativeFunction=null;nativeSelection++;nativeRender++;nativeNotes={};nativePage=0;nativeListPage=0;
  $('#nativeSummary').textContent=`${item.data.subject.name} · ${item.data.subject.architecture} · ${item.data.functions.length} function candidates · ${item.data.coverage.instructions.toLocaleString()} instructions · ${(item.data.metrics.elapsed_ms/1000).toFixed(2)}s`;
  $('#nativeSummary').title=item.data.subject.path+' · SHA-256 '+item.data.subject.sha256;
@@ -34,16 +48,28 @@ function renderNativeFunctions(){
  }
  if(!rows.length)list.append(el('p','pad muted','No matching function candidates.'));
 }
-async function selectNative(index,address=null){
+async function selectNative(index,address=null,options={}){
+ rememberNativeView();
+ const previous=nativeFunction;
  const item=nativeResult,token=++nativeSelection;nativeRender++;nativeFunction=null;nativeReferencePage=0;
  $('#nativeContent').textContent='Loading function…';$('#saveAnnotation').disabled=true;
  try{
   const f=item.paged?await window.rea.nativeFunction({id:item.id,index}):item.data.functions[index];
   if(nativeResult?.id!==item.id||token!==nativeSelection)return;
-  nativeFunction=f;nativePage=address?Math.max(0,Math.floor(f.instructions.findIndex(i=>i.address===address)/nativePageSize)):0;
+  nativeFunction=f;nativeLocation=address||f.address;
+  if(options.restore){nativeTrailIndex=options.position;nativeMode=options.restore.mode;nativePage=options.restore.page;nativeReferencePage=options.restore.referencePage;nativeListPage=options.restore.listPage;}
+  else{
+   if(options.mode)nativeMode=options.mode;
+   nativePage=address?Math.max(0,Math.floor(f.instructions.findIndex(i=>i.address===address)/nativePageSize)):0;
+   if(nativeTrail[nativeTrailIndex]?.address!==nativeLocation){
+    nativeTrail=nativeTrail.slice(0,nativeTrailIndex+1);nativeTrail.push({index,address:nativeLocation});
+    if(nativeTrail.length>100)nativeTrail.shift();nativeTrailIndex=nativeTrail.length-1;
+   }
+  }
+  rememberNativeView();nativeHistoryButtons();
   renderNativeFunctions();renderNative();
   const row=document.getElementById('ins-'+address);if(row){row.classList.add('address-focus');row.scrollIntoView({block:'center'});}
- }catch(e){if(token===nativeSelection){$('#nativeContent').textContent='Could not load function: '+e.message;toast(e.message);}}
+ }catch(e){if(token===nativeSelection){nativeFunction=previous;renderNative();nativeHistoryButtons();toast('Could not load function: '+e.message);}}
 }
 async function navigateNative(address){
  if(!nativeResult)return toast('Run Native disassembly first.');
@@ -53,12 +79,13 @@ async function navigateNative(address){
   const index=item.paged?await window.rea.nativeLocate({id:item.id,address}):item.data.functions.findIndex(f=>f.address===address||f.instructions.some(i=>i.address===address));
   if(nativeResult?.id!==item.id||token!==nativeSelection)return;
   if(index<0){$('#nativeAddress').value=address;return toast('Target '+address+' is not retained. Use Analyze address to decode it as a separate saved result.');}
-  nativeMode='assembly';await selectNative(index,address);
+  await selectNative(index,address,{mode:'assembly'});
  }catch(e){toast(e.message);}
 }
 function addressButton(address,label){const b=el('button','address-link',label||address||'unresolved');b.onclick=()=>navigateNative(address);return b;}
 function nativeTable(headers,rows){const table=el('table','native-table');const tr=el('tr');headers.forEach(h=>tr.append(el('th','',h)));const head=el('thead');head.append(tr);table.append(head);const body=el('tbody');for(const cells of rows){const row=el('tr');for(const value of cells){const td=el('td');td.append(typeof value==='object'&&value!==null?value:document.createTextNode(String(value??'—')));row.append(td);}body.append(row);}table.append(body);return table;}
 function renderNative(){
+ rememberNativeView();nativeHistoryButtons();
  const renderToken=++nativeRender;const out=$('#nativeContent');out.replaceChildren();if(!nativeResult)return;
  const data=nativeResult.data,f=nativeFunction;
  document.querySelectorAll('[data-native-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.nativeMode===nativeMode));
@@ -111,3 +138,7 @@ $('#nativeAnalyzeAddress').onclick=async()=>{
  setBusy(true);$('#progress').textContent='Checking original file and analyzing '+address+'…';
  try{await window.rea.focus({id,address});}catch(e){setBusy(false);toast(e.message);}
 };
+
+const nativeBack=el('button','','← Back');nativeBack.id='nativeBack';nativeBack.disabled=true;nativeBack.onclick=()=>moveNativeHistory(-1);
+const nativeForward=el('button','','Forward →');nativeForward.id='nativeForward';nativeForward.disabled=true;nativeForward.onclick=()=>moveNativeHistory(1);
+$('#nativeGo').before(nativeBack,nativeForward);
