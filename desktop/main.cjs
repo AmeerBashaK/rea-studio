@@ -63,14 +63,14 @@ ipcMain.handle('read',async(_e,relative)=>{
   if(bytes.includes(0))return 'Binary file • '+s.size.toLocaleString()+' bytes\n\nUse Artifact inspection to explore this file.';
   return bytes.toString('utf8');
 });
-ipcMain.handle('run',async(_e,args)=>{
+async function runAnalysis(args,focus=null){
   if(active)throw Error('An analysis is already running.');
   if(!Array.isArray(args)||!args.length||args.some(a=>typeof a!=='string'||a.includes('\0'))||!commands.some(c=>c.name===args[0]))throw Error('Choose a supported REA command.');
   if(args.some(a=>['--mcp','--update'].includes(a)))throw Error('This option is not available in the desktop console.');
   const native=args[0]==='native-analyze';
   if(native&&(args.length<2||args.length>3||(args.length===3&&args[2]!=='--json')))throw Error('Use native-analyze "C:\\path\\file.exe"');
-  const id=require('node:crypto').randomUUID(),started=new Date().toISOString(),runTarget=target;
-  const child=spawn(native?nativeBinary:node,native?[args[1]]:[cli,...args],{cwd:root||engine,windowsHide:true,stdio:['ignore','pipe','pipe']});
+  const id=require('node:crypto').randomUUID(),started=new Date().toISOString(),runTarget=focus?args[1]:target;
+  const child=spawn(native?nativeBinary:node,native?[args[1],...(focus?['--address',focus.address,'--expected-sha256',focus.sha256]:[])]:[cli,...args],{cwd:root||engine,windowsHide:true,stdio:['ignore','pipe','pipe']});
   child.stdout.setEncoding('utf8');child.stderr.setEncoding('utf8');
   const job={child,id,cancelled:false};active=job;
   let timedOut=false;
@@ -82,11 +82,18 @@ ipcMain.handle('run',async(_e,args)=>{
   child.on('close',async code=>{
     if(watchdog)clearTimeout(watchdog);
     let data=null;try{data=JSON.parse(stdout);}catch{}
-    const item={id,started,finished:new Date().toISOString(),args,target:runTarget,code,cancelled:job.cancelled,data,stdout,stderr,error:timedOut?'Native analysis exceeded the 90-second worker limit.':overflow?'Result exceeded the 32 MB desktop limit. Narrow the command scope.':spawnError};
+    const item={id,parentId:focus?.parentId||null,requestedAddress:focus?.address||null,started,finished:new Date().toISOString(),args,target:runTarget,code,cancelled:job.cancelled,data,stdout,stderr,error:timedOut?'Native analysis exceeded the 90-second worker limit.':overflow?'Result exceeded the 32 MB desktop limit. Narrow the command scope.':spawnError};
     try{await fs.writeFile(path.join(store(),id+'.json'),JSON.stringify(item));await fs.writeFile(path.join(store(),id+'.meta'),JSON.stringify({id,started,args,code,cancelled:job.cancelled}));}catch(e){item.error+=' Could not save history: '+e.message;}
     active=null;emit({type:'done',item});
   });
   return {id};
+}
+ipcMain.handle('run',(_e,args)=>runAnalysis(args));
+ipcMain.handle('focus',async(_e,{id,address})=>{
+  if(typeof address!=='string'||!/^0x[0-9a-f]{1,16}$/i.test(address))throw Error('Enter a valid hexadecimal virtual address.');
+  const item=await record(id);
+  if(item.code!==0||item.cancelled||item.error||item.data?.schema!=='studio-native/1'||!/^[a-f0-9]{64}$/.test(item.data.subject?.sha256)||typeof item.data.subject.path!=='string')throw Error('Select a successful native analysis first.');
+  return runAnalysis(['native-analyze',item.data.subject.path],{parentId:id,address,sha256:item.data.subject.sha256});
 });
 async function annotationPath(id){
   const item=await record(id);

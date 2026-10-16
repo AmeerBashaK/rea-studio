@@ -29,3 +29,13 @@ Automated checks cover startup, file selection, explorer, source preview, real J
 ## License
 
 REA is MIT-licensed; its license and third-party notices are included in `resources/engine`. Electron licenses are included beside the executable; Node's license is in `resources/runtime`. Original REA Studio wrapper code is AGPL-3.0-only; see LICENSE and ../LICENSING.md. Third-party components retain their own licenses.
+
+## Focused analysis (development source)
+
+Enter a hexadecimal virtual address in the native workspace and choose **Analyze address**. The worker rechecks the original file hash and decodes one candidate. It creates a separate saved result with an **Open original analysis** link; previous evidence and notes remain intact. This can inspect executable bytes not retained in the first scan. It does not prove the address is a function boundary.
+
+The focused result does not rescan strings. The installed 1.1.0 app does not include this feature yet. Large-project paging and combined revision browsing remain unfinished.
+
+Choose **Show all discovered candidates** to browse the retained seed inventory, including entries not decoded in the current result. Lists display 100 entries per page and support search. Selecting an undecoded candidate fills the address field; Analyze address performs the explicit decode. Pagination limits visible rows, not the in-memory result or on-disk project size.
+
+`node focused-smoke-test.cjs` uses a separate test profile and copied fixture to verify changed-file rejection, cancellation of the real worker, restart, original-result preservation, candidate selection, and reload. It requires the generated `verification/native-x64.exe` fixture and a rebuilt native worker. Test artifacts are saved under an ignored `verification/focused-*` directory.

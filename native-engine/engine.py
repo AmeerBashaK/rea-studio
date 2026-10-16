@@ -145,12 +145,22 @@ def basic_blocks(instructions):
     return blocks
 
 
-def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30):
+def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30, *, address=None, expected_sha256=None):
     wall, cpu = time.perf_counter(), time.process_time()
     deadline = wall + max_seconds
     progress("Validating PE headers and section mappings")
     image = Image(filename)
     pe = image.pe
+    digest = hashlib.sha256(image.data).hexdigest()
+    if address is not None:
+        if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_sha256):
+            raise AnalysisError("Focused analysis requires the original input SHA-256.")
+        if digest != expected_sha256.lower():
+            raise AnalysisError("Input SHA-256 changed; reopen the binary before using saved addresses.")
+        if not isinstance(address, int) or isinstance(address, bool) or not image.locate(address, True):
+            raise AnalysisError("Requested address is not backed by executable bytes in this input.")
+    elif expected_sha256 is not None:
+        raise AnalysisError("An expected SHA-256 requires a focused address.")
     limitations = ["Function boundaries and code discovery are conservative candidates, not complete recovery.",
                    "Indirect branches, jump tables, exception flow and obfuscated code are not resolved.",
                    "This engine provides assembly, not decompiled source, and never executes the target.",
@@ -183,6 +193,8 @@ def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30)
             (queue.appendleft if priority else queue.append)(address)
             queued.add(address)
 
+    if address is not None:
+        seed(address, "sub_" + format(address, "x"), "user-requested address")
     seed(image.entry, "entry_point", "PE entry point")
     exports = []
     export_symbols = getattr(getattr(pe, "DIRECTORY_ENTRY_EXPORT", None), "symbols", [])
@@ -208,9 +220,16 @@ def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30)
                 begin, end, unwind = struct.unpack_from("<III", image.data, offset + i * 12)
                 if begin < end and image.locate(image.base + end - 1, True):
                     seed(image.base + begin, "sub_" + format(image.base + begin, "x"), "x64 runtime-function entry")
+    if address is not None:
+        requested_address = address
+        queue.clear()
+        queue.append(requested_address)
+        max_functions = 1
+    else:
+        requested_address = None
     progress("Collecting strings and import references")
     strings = []
-    for pattern, encoding in [(rb"[\x20-\x7e]{5,}", "ascii"), (rb"(?:[\x20-\x7e]\x00){5,}", "utf-16-le")]:
+    for pattern, encoding in ([] if requested_address is not None else [(rb"[\x20-\x7e]{5,}", "ascii"), (rb"(?:[\x20-\x7e]\x00){5,}", "utf-16-le")]):
         for match in re.finditer(pattern, image.data):
             if len(strings) >= 2000 or time.perf_counter() > deadline:
                 cutoffs.append("String extraction stopped at its count or time limit")
@@ -296,14 +315,16 @@ def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30)
         instructions = sorted(seen.values(), key=lambda i: int(i["address"], 16))
         functions.append({"address": hx(address), **seeds[address], "instructions": instructions, "blocks": basic_blocks(instructions),
                           "coverage": "bounded", "limit_reached": function_cutoff, "decode_failures": decode_failures, "overlapping_paths": conflicts})
-    if queue:
+    if queue and requested_address is None:
         cutoffs.append("Function, instruction or elapsed-time budget left candidates unanalyzed")
     if any(f["limit_reached"] for f in functions):
         cutoffs.append("One or more functions reached an analysis budget")
     warnings = pe.get_warnings()[:20]
     sections = [{**s, "address": hx(image.base + s["rva"]), "rva": hx(s["rva"]), "offset": hx(s["offset"])} for s in image.sections]
     result = {"schema": "studio-native/1", "engine": {"name": "Studio Native", "version": VERSION, "decoder": "Capstone " + cs.__version__},
-              "subject": {"name": Path(filename).name, "path": str(Path(filename).resolve()), "sha256": hashlib.sha256(image.data).hexdigest(), "size": len(image.data), "architecture": "x64" if image.bits == 64 else "x86", "image_base": hx(image.base), "entry_point": hx(image.entry)},
+              "subject": {"name": Path(filename).name, "path": str(Path(filename).resolve()), "sha256": digest, "size": len(image.data), "architecture": "x64" if image.bits == 64 else "x86", "image_base": hx(image.base), "entry_point": hx(image.entry)},
+              "scope": {"kind": "focused" if requested_address is not None else "discovery", "requested_address": hx(requested_address) if requested_address is not None else None, "strings_scanned": requested_address is None},
+              "seeds": [{"address": hx(a), **info, "analyzed": a in done} for a, info in seeds.items()],
               "sections": sections, "imports": imports, "exports": exports, "strings": strings, "functions": functions, "references": references,
               "coverage": {"status": "partial", "candidate_functions": len(seeds), "analyzed_functions": len(functions), "instructions": instruction_count,
                            "limits": list(dict.fromkeys(cutoffs)), "max_functions": max_functions, "max_instructions": max_instructions, "max_seconds": max_seconds},
@@ -319,11 +340,13 @@ def main():
     parser.add_argument("--max-functions", type=int, default=256)
     parser.add_argument("--max-instructions", type=int, default=20000)
     parser.add_argument("--max-seconds", type=int, default=30)
+    parser.add_argument("--address", type=lambda value: int(value, 16), help="Virtual address in hexadecimal; decode one candidate")
+    parser.add_argument("--expected-sha256", help="Required original file hash for focused analysis")
     args = parser.parse_args()
     try:
         if not 1 <= args.max_functions <= 512 or not 1 <= args.max_instructions <= 40000 or not 1 <= args.max_seconds <= 60:
             raise AnalysisError("Requested analysis budget exceeds the supported range.")
-        result = analyze(args.path, args.max_functions, args.max_instructions, args.max_seconds)
+        result = analyze(args.path, args.max_functions, args.max_instructions, args.max_seconds, address=args.address, expected_sha256=args.expected_sha256)
         print(json.dumps(result, ensure_ascii=True, separators=(",", ":")))
         return 0
     except (AnalysisError, pefile.PEFormatError, OSError, ValueError, struct.error) as exc:

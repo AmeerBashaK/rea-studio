@@ -6,7 +6,9 @@ Goal: an installable Windows analysis workbench with useful capabilities availab
 
 Native x86/x64 PE loading, assembly, function candidates, direct references, imports/exports, strings, block successors, saved function names and notes. Acceptance evidence: engine test corpus, desktop tests, frozen-worker tests and `verification/native-benchmark.json`. Installer upgrade and installed native-workspace checks passed; see `verification/installer-1.1.0-verification.json`.
 
-## 2. Scalable analysis projects — next
+## 2. Scalable analysis projects — in progress
+
+Development source now supports hash-checked focused decoding, separate saved results with parent links, cancellation/restart, and paginated candidate browsing. Engine and desktop regression tests passed. This increment is not in the installed 1.1.0 release. Full-file hashing/metadata parsing still occurs; paged project storage and bounded result loading remain unfinished.
 
 - Decode a requested address/function without scanning the whole binary again. Verify the input hash matches the project before interpreting stored addresses.
 - Persist versioned projects and paginate instructions/references instead of retaining increasingly large JSON graphs in renderer memory.

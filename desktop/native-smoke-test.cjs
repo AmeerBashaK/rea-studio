@@ -26,6 +26,25 @@ const path=require('node:path');const assert=require('node:assert/strict');
  await page.reload();await page.locator('#history button').filter({hasText:'native-analyze'}).first().waitFor({timeout:60000});
  await page.locator('#history button').filter({hasText:'native-analyze'}).first().click();await page.click('[data-tab="native"]');
  await page.locator('#nativeFunctions button').filter({hasText:'entry_reviewed'}).waitFor();
+ // Focused decoding retains an immutable link to the original result.
+ const original=await page.evaluate(()=>current.id);
+ await page.fill('#nativeAddress','140001040');await page.click('#nativeAnalyzeAddress');
+ await page.waitForFunction(()=>current?.data?.scope?.kind==='focused');
+ assert.equal(await page.evaluate(()=>current.parentId),original);
+ assert.equal(await page.evaluate(()=>current.data.functions[0].address),'0x140001040');
+ assert.equal(await page.evaluate(()=>current.data.functions.length),1);
+ await page.locator('#nativeCoverage').filter({hasText:'strings were not rescanned'}).waitFor();
+ const focused=await page.evaluate(()=>current.id);
+ await page.reload();await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
+ await page.evaluate(async id=>show(await window.rea.result(id)),focused);
+ await page.getByRole('button',{name:'Open original analysis',exact:true}).click();
+ await page.locator('#nativeFunctions button').filter({hasText:'entry_reviewed'}).waitFor();
+ assert.equal(await page.evaluate(()=>current.id),original);
+ // An address in headers must fail without replacing the original record.
+ await page.fill('#nativeAddress','140000010');await page.click('#nativeAnalyzeAddress');
+ await page.waitForFunction(()=>current?.data?.code==='native_input_error');
+ assert.match(await page.locator('#result').textContent(),/not backed by executable/);
+ assert.equal(await page.evaluate(async id=>(await window.rea.result(id)).code,original),0);
  assert.deepEqual(errors,[]);
  console.log('PASS: bundled native engine, automatic workflow selection, assembly, call target navigation, CFG blocks, references, strings, sections, saved rename and notes, history reload; no renderer errors.');
  }finally{await app.close();}

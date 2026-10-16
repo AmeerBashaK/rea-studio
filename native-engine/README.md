@@ -32,3 +32,11 @@ On-demand function analysis and paged project storage; fuller metadata-based see
 ## License
 
 Original Studio Native code is AGPL-3.0-only. See LICENSE and ../LICENSING.md. Dependencies retain their original licenses.
+
+## Focused analysis (source development)
+
+The Python worker accepts `--address HEX_VIRTUAL_ADDRESS --expected-sha256 ORIGINAL_HASH` to decode one candidate beyond the initial discovery budget. Obtain the hash from the original result's `subject.sha256`. A changed file, missing hash, or address outside executable file-backed bytes is rejected. The requested address is a candidate, not a proven function boundary.
+
+Focused results identify their scope and skip string scanning. Calls produce references and seeds without decoding additional functions. The bounded `seeds` inventory reports whether each candidate was analyzed in this run. The full file is still read and hashed, and PE metadata is parsed; this is not a persistent cache.
+
+The development desktop exposes these additions through Analyze address and has been tested against a rebuilt worker. The installed 1.1.0 application has not been upgraded. All 20 source regression tests pass, including focused x86/x64 decoding, input replacement, hash and mapping validation, and call-following boundaries.

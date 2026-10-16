@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+import hashlib
 import contextlib
 import io
 import json
@@ -53,6 +54,42 @@ class EngineTests(unittest.TestCase):
             p.write_bytes(raw)
             with contextlib.redirect_stderr(io.StringIO()):
                 return analyze(p, **kwargs)
+
+    def test_focused_helper_outside_initial_budget(self):
+        raw = fixture()
+        initial = self.run_bytes(raw, max_functions=1)
+        self.assertEqual(len(initial['functions']), 1)
+        r = self.run_bytes(raw, address=0x140001020, expected_sha256=initial['subject']['sha256'])
+        self.assertEqual([f['address'] for f in r['functions']], ['0x140001020'])
+        self.assertEqual(r['functions'][0]['instructions'][0]['operands'], 'eax, 0x2a')
+        self.assertEqual(r['scope']['kind'], 'focused')
+        self.assertFalse(r['scope']['strings_scanned'])
+        self.assertEqual(r['strings'], [])
+
+    def test_focused_rejects_replaced_input(self):
+        raw = fixture()
+        digest = hashlib.sha256(raw).hexdigest()
+        raw[544] = 0xc3
+        with self.assertRaisesRegex(AnalysisError, 'SHA-256 changed'):
+            self.run_bytes(raw, address=0x140001020, expected_sha256=digest)
+
+    def test_focused_requires_hash_and_executable_mapping(self):
+        raw = fixture()
+        with self.assertRaisesRegex(AnalysisError, 'requires the original'):
+            self.run_bytes(raw, address=0x140001020)
+        with self.assertRaisesRegex(AnalysisError, 'not backed by executable'):
+            self.run_bytes(raw, address=0x140000010, expected_sha256=hashlib.sha256(raw).hexdigest())
+
+    def test_focused_does_not_follow_calls_into_more_functions(self):
+        raw = fixture()
+        r = self.run_bytes(raw, address=0x140001000, expected_sha256=hashlib.sha256(raw).hexdigest())
+        self.assertEqual(len(r['functions']), 1)
+        self.assertTrue(any(s['address'] == '0x140001020' and not s['analyzed'] for s in r['seeds']))
+
+    def test_focused_x86_address(self):
+        raw = fixture(32)
+        r = self.run_bytes(raw, address=0x401020, expected_sha256=hashlib.sha256(raw).hexdigest())
+        self.assertEqual(r['functions'][0]['address'], '0x401020')
 
     def test_x64_calls_and_branches(self):
         r = self.run_bytes(fixture())
