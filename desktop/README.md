@@ -50,3 +50,9 @@ Run `node --test result-store.test.cjs` to check old/new history, cross-chunk pa
 
 
 On the local kernel32.dll sample (256 candidates, 9,907 instructions), the serialized full result was 3,630,431 bytes, versus a 738,879-byte summary and a 4,466-byte first-function response. These measure serialized payload size, not peak process memory or overall analysis speed. Results remain partial and capped.
+
+## Larger-input desktop baseline
+
+`node large-native-smoke-test.cjs` analyzes the installed Node executable in a separate profile, navigates the third candidate page, loads the last function, opens graph/reference views, returns to the first function, reloads history, and checks a full export. It runs `native-engine/sample_process_memory.py` to sample only that Electron process tree. Python 3.12 in the native-engine virtual environment and the rebuilt worker are prerequisites.
+
+One local run on the 92,825,416-byte Node executable retained 256 candidates and 10,003 instructions. Analysis completion took 1,525 ms from the test's file-open action. Across 61 samples, the maximum observed sum was 814,641,152 bytes working set and 703,619,072 bytes private memory, with up to seven processes. Sampling requests a 100 ms interval and begins after Electron launches; it can miss short-lived processes and exact peaks. Shared pages can be counted multiple times in summed working sets. This is one development-build baseline with uncontrolled caches, not a before/after comparison or a claim of whole-binary recovery. Results are saved under ignored `verification/large-native-*` folders.
