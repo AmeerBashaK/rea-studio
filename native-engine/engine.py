@@ -16,7 +16,6 @@ from capstone.x86 import X86_OP_IMM, X86_OP_MEM, X86_REG_RIP, X86_REG_EIP
 import pefile
 
 VERSION = "0.1.0"
-MAX_FILE = 128 * 1024 * 1024
 
 
 def hx(value):
@@ -50,12 +49,7 @@ class AnalysisError(Exception):
 class Image:
     def __init__(self, filename):
         with open(filename, "rb") as stream:
-            size = os.fstat(stream.fileno()).st_size
-            if size > MAX_FILE:
-                raise AnalysisError("Input exceeds the 128 MB file limit.")
-            self.data = stream.read(MAX_FILE + 1)
-        if len(self.data) > MAX_FILE:
-            raise AnalysisError("Input grew beyond the file limit while reading.")
+            self.data = stream.read()
         if len(self.data) < 64 or self.data[:2] != b"MZ":
             raise AnalysisError("Expected a Windows PE executable or DLL with an MZ header.")
         self.pe = pefile.PE(data=self.data, fast_load=True)

@@ -57,6 +57,21 @@ class EngineTests(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()):
                 return analyze(p, **kwargs)
 
+    def test_input_larger_than_previous_size_cap(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as folder:
+            p = Path(folder) / 'large.exe'
+            with p.open('wb') as stream:
+                stream.write(fixture())
+                stream.truncate(129 * 1024 * 1024)
+            with p.open('rb') as stream:
+                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+            with contextlib.redirect_stderr(io.StringIO()):
+                result = analyze(p)
+            self.assertEqual(result['subject']['size'], 129 * 1024 * 1024)
+            self.assertEqual(result['subject']['sha256'], digest)
+            self.assertIn('0x140001000', [f['address'] for f in result['functions']])
+            self.assertIn('0x140001020', [f['address'] for f in result['functions']])
+
     def test_focused_helper_outside_initial_budget(self):
         raw = fixture()
         initial = self.run_bytes(raw, max_functions=1)

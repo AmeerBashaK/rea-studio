@@ -15,7 +15,9 @@ A subscription-free static Windows PE analysis worker, independent of REA's Ghid
 
 All results are conservative and partial. Function candidates are not a complete source-function inventory. Jump tables, C++ types, exception edges, packed or self-modifying code, indirect-call resolution, and decompilation are not implemented. Managed PE files are rejected with a route to the .NET workflow. Input executables are read as bytes, never loaded or run.
 
-Limits: 128 MB input, 96 sections, 8,192 function seeds, 4,096 imports/exports, 2,000 strings, 2,048 instructions per function. Default discovery: 256 candidates, 20,000 total instructions, 30 seconds. CLI budgets can be raised to 512 candidates, 40,000 instructions and 60 seconds. The desktop enforces a 90-second worker timeout and 32 MB output cap. Boundaries that stop recovery are reported, not represented as absence.
+There is no fixed input-file size cap. The worker currently reads the whole input into memory; available memory and analysis time still limit practical file sizes. The desktop text-preview limit does not prevent analysis.
+
+Analysis limits: 96 sections, 8,192 function seeds, 4,096 imports/exports, 2,000 strings, 2,048 instructions per function. Default discovery: 256 candidates, 20,000 total instructions, 30 seconds. CLI budgets can be raised to 512 candidates, 40,000 instructions and 60 seconds. The desktop enforces a 90-second worker timeout and 32 MB output cap. Boundaries that stop recovery are reported, not represented as absence.
 
 ## Reproduce
 
