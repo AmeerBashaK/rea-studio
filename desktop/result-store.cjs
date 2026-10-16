@@ -27,14 +27,16 @@ class ResultStore{
   for(let i=0;i<item.data.functions.length;i++)if((await this.function(id,i)).instructions.some(row=>row.address===address))return i;
   return -1;
  }
- async related(id,index,offset=0){
+ async related(id,index,offset=0,query=''){
+  if(typeof query!=='string'||query.length>200)throw Error('Invalid reference search');
+  const needle=query.trim().toLowerCase();
   if(!Number.isSafeInteger(offset)||offset<0)throw Error('Invalid page bounds');
   const item=await this.summary(id),f=await this.function(id,index),sources=new Set(f.instructions.map(i=>i.address));
   const totalRefs=item.storage?item.storage.referenceCount:item.data.references.length;
   const items=[];let total=0;
   for(let start=0;start<totalRefs;start+=PAGE){
    const rows=item.storage?await this.json(this.chunk(id,'references-'+start/PAGE)):item.data.references.slice(start,start+PAGE);
-   for(const row of rows)if(sources.has(row.source)||row.target===f.address){if(total>=offset&&items.length<PAGE)items.push(row);total++;}
+   for(const row of rows)if((sources.has(row.source)||row.target===f.address)&&[row.source,row.target||'unresolved',row.kind,row.label].some(value=>String(value??'').toLowerCase().includes(needle))){if(total>=offset&&items.length<PAGE)items.push(row);total++;}
   }
   return {items,total,offset,limit:PAGE};
  }

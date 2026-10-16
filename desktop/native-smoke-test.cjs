@@ -2,7 +2,8 @@
 const {_electron}=require('../rea/node_modules/playwright-core');
 const path=require('node:path');const assert=require('node:assert/strict');
 (async()=>{
- const app=await _electron.launch({executablePath:process.env.REA_TEST_EXE||require('electron'),args:process.env.REA_TEST_EXE?[]:[__dirname],timeout:60000});
+ const profile=await require('node:fs/promises').mkdtemp(path.resolve(__dirname,'../verification/native-profile-'));
+ const app=await _electron.launch({executablePath:process.env.REA_TEST_EXE||require('electron'),args:[...(process.env.REA_TEST_EXE?[]:[__dirname]),'--user-data-dir='+profile],timeout:60000});
  try{
  const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
@@ -27,10 +28,18 @@ const path=require('node:path');const assert=require('node:assert/strict');
  await page.click('#nativeBack');await page.waitForFunction(()=>nativeMode==='graph');
 
  await page.click('[data-native-mode="references"]');assert.match(await page.locator('#nativeContent').textContent(),/0x140001020/);
+ await page.fill('#annotationComment','unsaved during search');
+ await page.fill('#nativeReferenceSearch','NO_MATCH');await page.getByRole('button',{name:'Search references',exact:true}).click();
+ await page.locator('#nativeContent').filter({hasText:'0 references'}).waitFor();
+ assert.equal(await page.locator('#annotationComment').inputValue(),'unsaved during search');
+ await page.fill('#nativeReferenceSearch','CALL');await page.getByRole('button',{name:'Search references',exact:true}).click();
+ await page.locator('#nativeContent').filter({hasText:'1 references'}).waitFor();
+ assert.equal(await page.locator('#nativeContent tbody tr').count(),1);
  await page.fill('#nativeAddress','140001020');await page.click('#nativeGo');
  assert.match(await page.locator('#nativeContent').textContent(),/0x2a/);
  await page.click('#nativeBack');await page.waitForFunction(()=>nativeFunction?.address==='0x140001000');
  assert.equal(await page.evaluate(()=>nativeMode),'references');
+ assert.equal(await page.locator('#nativeReferenceSearch').inputValue(),'CALL');
  await page.click('#nativeForward');await page.waitForFunction(()=>nativeFunction?.address==='0x140001020');
  assert.equal(await page.evaluate(()=>nativeMode),'assembly');
  await page.click('#nativeBack');await page.waitForFunction(()=>nativeFunction?.address==='0x140001000');

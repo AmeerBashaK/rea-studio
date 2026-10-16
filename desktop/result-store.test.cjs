@@ -65,3 +65,20 @@ test('related references page through matches across chunk boundaries',async()=>
  assert.deepEqual([...first.items,...last.items],item.data.references.filter(r=>r.source==='0x1000'));
  await assert.rejects(store.related(item.id,0,-1));
 });
+
+
+test('reference search filters before paging in legacy and chunked records',async()=>{
+ const {store}=await setup();
+ for(const legacy of [true,false]){
+  const item=sample();item.data.references=item.data.references.map((r,i)=>({...r,source:'0x1000',target:null,label:i%2?'Other':'KERNEL32!ReadFile',kind:'call'}));
+  if(legacy)await fs.writeFile(store.file(item.id),JSON.stringify(item));else await store.save(item);
+  const a=await store.related(item.id,0,0,'  READFILE  '),b=await store.related(item.id,0,200,'readfile');
+  assert.equal(a.total,225);assert.equal(a.items.length,200);assert.equal(b.items.length,25);
+  assert.equal((await store.related(item.id,0,0,'unresolved')).total,450);
+  assert.equal((await store.related(item.id,0,0,'0x1000')).total,450);
+  assert.equal((await store.related(item.id,0,0,'call')).total,450);
+  assert.equal((await store.related(item.id,0,0,'[.*]')).total,0);
+  await assert.rejects(store.related(item.id,0,0,'x'.repeat(201)),/Invalid reference search/);
+  await assert.rejects(store.related(item.id,0,0,{}),/Invalid reference search/);
+ }
+});

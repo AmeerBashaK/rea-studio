@@ -3,11 +3,11 @@
 let nativeResult=null,nativeFunction=null,nativeNotes={},nativeMode='assembly',nativePage=0;
 const nativePageSize=150;
 let nativeSeeds=false,nativeListPage=0,nativeSelection=0,nativeRender=0,nativeReferencePage=0;
-let nativeBookmarksOnly=false;
+let nativeBookmarksOnly=false,nativeReferenceQuery='';
 const nativeListSize=100;
 let nativeTrail=[],nativeTrailIndex=-1,nativeLocation=null;
 function rememberNativeView(){
- if(nativeTrailIndex>=0&&nativeFunction)nativeTrail[nativeTrailIndex]={index:nativeResult.data.functions.findIndex(f=>f.address===nativeFunction.address),address:nativeLocation||nativeFunction.address,mode:nativeMode,page:nativePage,referencePage:nativeReferencePage,listPage:nativeListPage};
+ if(nativeTrailIndex>=0&&nativeFunction)nativeTrail[nativeTrailIndex]={index:nativeResult.data.functions.findIndex(f=>f.address===nativeFunction.address),address:nativeLocation||nativeFunction.address,mode:nativeMode,page:nativePage,referencePage:nativeReferencePage,referenceQuery:nativeReferenceQuery,listPage:nativeListPage};
 }
 function nativeHistoryButtons(){
  if(!$('#nativeBack'))return;
@@ -21,7 +21,7 @@ async function moveNativeHistory(delta){
 function nativeTitle(f){return nativeNotes[f.address]?.name||f.name;}
 async function loadNative(item){
  nativeTrail=[];nativeTrailIndex=-1;nativeLocation=null;nativeHistoryButtons();
- nativeResult=item;nativeFunction=null;nativeSelection++;nativeRender++;nativeNotes={};nativePage=0;nativeListPage=0;
+ nativeReferenceQuery='';nativeResult=item;nativeFunction=null;nativeSelection++;nativeRender++;nativeNotes={};nativePage=0;nativeListPage=0;
  $('#nativeSummary').textContent=`${item.data.subject.name} · ${item.data.subject.architecture} · ${item.data.functions.length} function candidates · ${item.data.coverage.instructions.toLocaleString()} instructions · ${(item.data.metrics.elapsed_ms/1000).toFixed(2)}s`;
  $('#nativeSummary').title=item.data.subject.path+' · SHA-256 '+item.data.subject.sha256;
  $('#nativeCoverage').textContent=(item.data.scope?.kind==='focused'?'Focused analysis at '+item.data.scope.requested_address+' · Separate saved result; strings were not rescanned. ':'')+(item.data.coverage.limits.length?item.data.coverage.limits.join(' · '):'Conservative static analysis. Indirect control flow and undiscovered code remain unresolved.');
@@ -58,7 +58,7 @@ async function selectNative(index,address=null,options={}){
   const f=item.paged?await window.rea.nativeFunction({id:item.id,index}):item.data.functions[index];
   if(nativeResult?.id!==item.id||token!==nativeSelection)return;
   nativeFunction=f;nativeLocation=address||f.address;
-  if(options.restore){nativeTrailIndex=options.position;nativeMode=options.restore.mode;nativePage=options.restore.page;nativeReferencePage=options.restore.referencePage;nativeListPage=options.restore.listPage;}
+  if(options.restore){nativeTrailIndex=options.position;nativeMode=options.restore.mode;nativePage=options.restore.page;nativeReferencePage=options.restore.referencePage;nativeReferenceQuery=options.restore.referenceQuery||'';nativeListPage=options.restore.listPage;}
   else{
    if(options.mode)nativeMode=options.mode;
    nativePage=address?Math.max(0,Math.floor(f.instructions.findIndex(i=>i.address===address)/nativePageSize)):0;
@@ -100,6 +100,12 @@ function renderNative(){
  out.append(el('p','native-note',`${f.address} · Basis: ${f.basis}${f.limit_reached?' · Analysis limit reached':''}${f.decode_failures.length?' · Undecodable paths: '+f.decode_failures.length:''}`));
  if(nativeMode==='references'){
  const item=nativeResult,index=data.functions.findIndex(row=>row.address===f.address);
+ const search=el('form','assembly-pagination'),input=el('input'),submit=el('button','','Search references');
+ input.id='nativeReferenceSearch';input.maxLength=200;input.value=nativeReferenceQuery;
+ input.placeholder='Address, symbol, kind or unresolved';input.setAttribute('aria-label','Search function references');
+ submit.type='submit';search.append(input,submit);out.append(search,el('p','native-note','Search retained references to or from this function.'));
+ search.onsubmit=event=>{event.preventDefault();const name=$('#annotationName').value,comment=$('#annotationComment').value;nativeReferenceQuery=input.value.trim();nativeReferencePage=0;renderNative();$('#annotationName').value=name;$('#annotationComment').value=comment;};
+
  const draw=page=>{
   if(renderToken!==nativeRender||nativeResult?.id!==item.id)return;
   const controls=el('div','assembly-pagination'),prev=el('button','','← Previous references'),next=el('button','','Next references →');
@@ -108,8 +114,8 @@ function renderNative(){
   controls.append(prev,el('span','',`${page.total} references · Page ${nativeReferencePage+1}`),next);
   out.append(controls,nativeTable(['From','To','Kind','Symbol'],page.items.map(r=>[addressButton(r.source),r.target?addressButton(r.target):'unresolved',r.kind,r.label||'—'])));
  };
- if(item.paged)window.rea.nativeRelated({id:item.id,index,offset:nativeReferencePage*200}).then(draw).catch(e=>{if(renderToken===nativeRender)out.append(el('p','error',e.message));});
- else{const addresses=new Set(f.instructions.map(i=>i.address)),rows=data.references.filter(r=>addresses.has(r.source)||r.target===f.address);draw({items:rows.slice(nativeReferencePage*200,(nativeReferencePage+1)*200),total:rows.length,offset:nativeReferencePage*200,limit:200});}
+ if(item.paged)window.rea.nativeRelated({id:item.id,index,offset:nativeReferencePage*200,query:nativeReferenceQuery}).then(draw).catch(e=>{if(renderToken===nativeRender)out.append(el('p','error',e.message));});
+ else{const addresses=new Set(f.instructions.map(i=>i.address)),rows=data.references.filter(r=>(addresses.has(r.source)||r.target===f.address)&&[r.source,r.target||'unresolved',r.kind,r.label].some(value=>String(value??'').toLowerCase().includes(nativeReferenceQuery.toLowerCase())));draw({items:rows.slice(nativeReferencePage*200,(nativeReferencePage+1)*200),total:rows.length,offset:nativeReferencePage*200,limit:200});}
  return;
  }
  if(nativeMode==='graph'){

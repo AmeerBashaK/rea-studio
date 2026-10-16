@@ -147,7 +147,7 @@ ipcMain.handle('history',async()=>{
 });
 ipcMain.handle('native-function',(_e,{id,index})=>results().function(id,index));
 ipcMain.handle('native-locate',(_e,{id,address})=>results().locate(id,address));
-ipcMain.handle('native-related',(_e,{id,index,offset})=>results().related(id,index,offset));
+ipcMain.handle('native-related',(_e,{id,index,offset,query})=>results().related(id,index,offset,query));
 ipcMain.handle('native-page',(_e,{id,...options})=>results().page(id,options));
 ipcMain.handle('result',(_e,id)=>record(id));
 ipcMain.handle('export',async(_e,id)=>{
