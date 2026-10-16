@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+from unittest.mock import patch
+from types import SimpleNamespace
 import hashlib
 import contextlib
 import io
@@ -90,6 +92,19 @@ class EngineTests(unittest.TestCase):
         raw = fixture(32)
         r = self.run_bytes(raw, address=0x401020, expected_sha256=hashlib.sha256(raw).hexdigest())
         self.assertEqual(r['functions'][0]['address'], '0x401020')
+
+    def test_exports_do_not_change_requested_analysis_scope(self):
+        def exported(pe, **kwargs):
+            pe.DIRECTORY_ENTRY_EXPORT = SimpleNamespace(symbols=[SimpleNamespace(address=0x1020, name=b'helper', forwarder=None, ordinal=1)])
+        raw = fixture()
+        with patch.object(pefile.PE, 'parse_data_directories', exported):
+            discovery = self.run_bytes(raw)
+            self.assertEqual(discovery['scope']['kind'], 'discovery')
+            self.assertEqual(len(discovery['functions']), 2)
+            self.assertTrue(discovery['scope']['strings_scanned'])
+            focused = self.run_bytes(raw, address=0x140001000, expected_sha256=hashlib.sha256(raw).hexdigest())
+            self.assertEqual(focused['scope']['requested_address'], '0x140001000')
+            self.assertEqual(focused['functions'][0]['address'], '0x140001000')
 
     def test_x64_calls_and_branches(self):
         r = self.run_bytes(fixture())

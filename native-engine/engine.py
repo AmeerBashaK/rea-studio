@@ -146,6 +146,7 @@ def basic_blocks(instructions):
 
 
 def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30, *, address=None, expected_sha256=None):
+    requested_address = address
     wall, cpu = time.perf_counter(), time.process_time()
     deadline = wall + max_seconds
     progress("Validating PE headers and section mappings")
@@ -220,13 +221,10 @@ def analyze(filename, max_functions=256, max_instructions=20000, max_seconds=30,
                 begin, end, unwind = struct.unpack_from("<III", image.data, offset + i * 12)
                 if begin < end and image.locate(image.base + end - 1, True):
                     seed(image.base + begin, "sub_" + format(image.base + begin, "x"), "x64 runtime-function entry")
-    if address is not None:
-        requested_address = address
+    if requested_address is not None:
         queue.clear()
         queue.append(requested_address)
         max_functions = 1
-    else:
-        requested_address = None
     progress("Collecting strings and import references")
     strings = []
     for pattern, encoding in ([] if requested_address is not None else [(rb"[\x20-\x7e]{5,}", "ascii"), (rb"(?:[\x20-\x7e]\x00){5,}", "utf-16-le")]):

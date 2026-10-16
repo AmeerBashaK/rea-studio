@@ -24,7 +24,7 @@ async function confined(relative){
   if(rel.startsWith('..')||path.isAbsolute(rel))throw Error('This file is outside the open workspace.');
   return resolved;
 }
-async function record(id){return results().read(id);}
+async function record(id){return results().view(id);}
 async function cancel(){if(active&&active.child.exitCode===null&&active.child.signalCode===null){active.cancelled=true;if(active.child.pid)await exec('taskkill.exe',['/PID',String(active.child.pid),'/T','/F'],{windowsHide:true}).catch(()=>{});}}
 app.whenReady().then(async()=>{
   await fs.mkdir(store(),{recursive:true});
@@ -86,7 +86,7 @@ async function runAnalysis(args,focus=null){
     let data=null;try{data=JSON.parse(stdout);}catch{}
     const item={id,parentId:focus?.parentId||null,requestedAddress:focus?.address||null,started,finished:new Date().toISOString(),args,target:runTarget,code,cancelled:job.cancelled,data,stdout,stderr,error:timedOut?'Native analysis exceeded the 90-second worker limit.':overflow?'Result exceeded the 32 MB desktop limit. Narrow the command scope.':spawnError};
     try{await results().save(item);if(data?.schema==='studio-native/1')item.stdout='';await fs.writeFile(path.join(store(),id+'.meta'),JSON.stringify({id,started,args,code,cancelled:job.cancelled}));}catch(e){item.error+=' Could not save history: '+e.message;}
-    active=null;emit({type:'done',item});
+    active=null;let display=item;try{display=await results().view(id);}catch{}emit({type:'done',item:display});
   });
   return {id};
 }
@@ -119,6 +119,9 @@ ipcMain.handle('history',async()=>{
   for(const n of names){try{const meta=path.join(store(),n.replace(/\.json$/,'.meta'));let v;try{v=JSON.parse(await fs.readFile(meta,'utf8'));}catch{const old=JSON.parse(await fs.readFile(path.join(store(),n),'utf8'));v={id:old.id,started:old.started,args:old.args,code:old.code,cancelled:old.cancelled};await fs.writeFile(meta,JSON.stringify(v));}rows.push(v);}catch{}}
   return rows.filter(Boolean).sort((a,b)=>b.started.localeCompare(a.started)).slice(0,50);
 });
+ipcMain.handle('native-function',(_e,{id,index})=>results().function(id,index));
+ipcMain.handle('native-locate',(_e,{id,address})=>results().locate(id,address));
+ipcMain.handle('native-related',(_e,{id,index,offset})=>results().related(id,index,offset));
 ipcMain.handle('native-page',(_e,{id,...options})=>results().page(id,options));
 ipcMain.handle('result',(_e,id)=>record(id));
 ipcMain.handle('export',async(_e,id)=>{

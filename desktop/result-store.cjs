@@ -9,6 +9,35 @@ class ResultStore{
  chunk(id,name){checkId(id);return path.join(this.root,id+'.parts',name+'.json');}
  async json(file){return JSON.parse(await fs.readFile(file,'utf8'));}
  async summary(id){const item=await this.json(this.file(id));if(item.storage&&item.storage.version!==1)throw Error('Unsupported result storage version');return item;}
+ async view(id){
+  const item=await this.summary(id);if(item.data?.schema!=='studio-native/1')return item;
+  const {references,...header}=item.data;
+  const functions=header.functions.map(({instructions,blocks,...f})=>({...f,instructionCount:f.instructionCount??instructions.length}));
+  return {...item,stdout:'',paged:true,data:{...header,functions}};
+ }
+ async function(id,index){
+  const item=await this.summary(id);
+  if(!Number.isSafeInteger(index)||index<0||index>=item.data?.functions?.length)throw Error('Invalid function index');
+  return item.storage?this.json(this.chunk(id,'function-'+index)):item.data.functions[index];
+ }
+ async locate(id,address){
+  if(typeof address!=='string'||!/^0x[0-9a-f]{1,16}$/i.test(address))throw Error('Invalid address');
+  const item=await this.summary(id),exact=item.data.functions.findIndex(f=>f.address===address);
+  if(exact>=0)return exact;
+  for(let i=0;i<item.data.functions.length;i++)if((await this.function(id,i)).instructions.some(row=>row.address===address))return i;
+  return -1;
+ }
+ async related(id,index,offset=0){
+  if(!Number.isSafeInteger(offset)||offset<0)throw Error('Invalid page bounds');
+  const item=await this.summary(id),f=await this.function(id,index),sources=new Set(f.instructions.map(i=>i.address));
+  const totalRefs=item.storage?item.storage.referenceCount:item.data.references.length;
+  const items=[];let total=0;
+  for(let start=0;start<totalRefs;start+=PAGE){
+   const rows=item.storage?await this.json(this.chunk(id,'references-'+start/PAGE)):item.data.references.slice(start,start+PAGE);
+   for(const row of rows)if(sources.has(row.source)||row.target===f.address){if(total>=offset&&items.length<PAGE)items.push(row);total++;}
+  }
+  return {items,total,offset,limit:PAGE};
+ }
  async save(item){
   const file=this.file(item.id);await fs.mkdir(this.root,{recursive:true});
   try{await fs.access(file);throw Error('Analysis already exists');}catch(e){if(e.code!=='ENOENT')throw e;}

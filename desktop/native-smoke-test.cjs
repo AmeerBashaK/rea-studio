@@ -27,6 +27,9 @@ const path=require('node:path');const assert=require('node:assert/strict');
  await page.locator('#history button').filter({hasText:'native-analyze'}).first().click();await page.click('[data-tab="native"]');
  await page.locator('#nativeFunctions button').filter({hasText:'entry_reviewed'}).waitFor();
  // Focused decoding retains an immutable link to the original result.
+ assert.equal(await page.evaluate(()=>current.paged),true);
+ assert.equal(await page.evaluate(()=>current.data.functions.some(f=>Array.isArray(f.instructions))),false);
+ assert.equal(await page.evaluate(()=>current.data.references),undefined);
  const original=await page.evaluate(()=>current.id);
  await page.fill('#nativeAddress','140001040');await page.click('#nativeAnalyzeAddress');
  await page.waitForFunction(()=>current?.data?.scope?.kind==='focused');

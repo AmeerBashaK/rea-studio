@@ -2,16 +2,16 @@
 /* Independent native analysis view. All target-derived content is rendered as text. */
 let nativeResult=null,nativeFunction=null,nativeNotes={},nativeMode='assembly',nativePage=0;
 const nativePageSize=150;
-let nativeSeeds=false,nativeListPage=0;
+let nativeSeeds=false,nativeListPage=0,nativeSelection=0,nativeRender=0,nativeReferencePage=0;
 const nativeListSize=100;
 function nativeTitle(f){return nativeNotes[f.address]?.name||f.name;}
 async function loadNative(item){
- nativeResult=item;nativeFunction=item.data.functions[0]||null;nativeNotes={};nativePage=0;nativeListPage=0;
+ nativeResult=item;nativeFunction=null;nativeSelection++;nativeRender++;nativeNotes={};nativePage=0;nativeListPage=0;
  $('#nativeSummary').textContent=`${item.data.subject.name} · ${item.data.subject.architecture} · ${item.data.functions.length} function candidates · ${item.data.coverage.instructions.toLocaleString()} instructions · ${(item.data.metrics.elapsed_ms/1000).toFixed(2)}s`;
  $('#nativeSummary').title=item.data.subject.path+' · SHA-256 '+item.data.subject.sha256;
  $('#nativeCoverage').textContent=(item.data.scope?.kind==='focused'?'Focused analysis at '+item.data.scope.requested_address+' · Separate saved result; strings were not rescanned. ':'')+(item.data.coverage.limits.length?item.data.coverage.limits.join(' · '):'Conservative static analysis. Indirect control flow and undiscovered code remain unresolved.');
  try{const notes=await window.rea.annotations(item.id);if(nativeResult?.id!==item.id)return;nativeNotes=notes;}catch(e){toast(e.message);}
- renderNativeFunctions();renderNative();
+ renderNativeFunctions();if(item.data.functions.length)await selectNative(0);else renderNative();
 }
 function renderNativeFunctions(){
  const list=$('#nativeFunctions');list.replaceChildren();if(!nativeResult)return;
@@ -27,25 +27,39 @@ function renderNativeFunctions(){
  controls.append(prev,el('small','',`${rows.length} matches · ${nativeListPage+1}/${pages}`),next);list.append(controls);
  for(const candidate of rows.slice(nativeListPage*nativeListSize,(nativeListPage+1)*nativeListSize)){
   const f=decoded.get(candidate.address);
-  const b=el('button','native-function'+(f&&f===nativeFunction?' selected':''));
-  b.append(el('strong','',nativeTitle(candidate)),el('small','',`${candidate.address} · ${f?f.instructions.length+' instructions':'Not decoded in this result'}`));
-  b.onclick=()=>{if(f){nativeFunction=f;nativePage=0;renderNativeFunctions();renderNative();}else{$('#nativeAddress').value=candidate.address;toast('Candidate selected. Choose Analyze address to decode it in a separate result.');}};
+  const b=el('button','native-function'+(f&&f.address===nativeFunction?.address?' selected':''));
+  b.append(el('strong','',nativeTitle(candidate)),el('small','',`${candidate.address} · ${f?(f.instructionCount??f.instructions?.length??0)+' instructions':'Not decoded in this result'}`));
+  b.onclick=()=>{if(f){selectNative(data.functions.indexOf(f));}else{$('#nativeAddress').value=candidate.address;toast('Candidate selected. Choose Analyze address to decode it in a separate result.');}};
   list.append(b);
  }
  if(!rows.length)list.append(el('p','pad muted','No matching function candidates.'));
 }
-function navigateNative(address){
+async function selectNative(index,address=null){
+ const item=nativeResult,token=++nativeSelection;nativeRender++;nativeFunction=null;nativeReferencePage=0;
+ $('#nativeContent').textContent='Loading function…';$('#saveAnnotation').disabled=true;
+ try{
+  const f=item.paged?await window.rea.nativeFunction({id:item.id,index}):item.data.functions[index];
+  if(nativeResult?.id!==item.id||token!==nativeSelection)return;
+  nativeFunction=f;nativePage=address?Math.max(0,Math.floor(f.instructions.findIndex(i=>i.address===address)/nativePageSize)):0;
+  renderNativeFunctions();renderNative();
+  const row=document.getElementById('ins-'+address);if(row){row.classList.add('address-focus');row.scrollIntoView({block:'center'});}
+ }catch(e){if(token===nativeSelection){$('#nativeContent').textContent='Could not load function: '+e.message;toast(e.message);}}
+}
+async function navigateNative(address){
  if(!nativeResult)return toast('Run Native disassembly first.');
  if(!address)return toast('This indirect target is unresolved.');
- const found=nativeResult.data.functions.find(f=>f.address===address)||nativeResult.data.functions.find(f=>f.instructions.some(i=>i.address===address));
- if(!found){$('#nativeAddress').value=address;return toast('Target '+address+' is not retained. Use Analyze address to decode it as a separate saved result.');}
- nativeFunction=found;nativeMode='assembly';const index=found.instructions.findIndex(i=>i.address===address);nativePage=Math.max(0,Math.floor(index/nativePageSize));
- renderNativeFunctions();renderNative();const row=document.getElementById('ins-'+address);if(row){row.classList.add('address-focus');row.scrollIntoView({block:'center'});}
+ const item=nativeResult,token=++nativeSelection;
+ try{
+  const index=item.paged?await window.rea.nativeLocate({id:item.id,address}):item.data.functions.findIndex(f=>f.address===address||f.instructions.some(i=>i.address===address));
+  if(nativeResult?.id!==item.id||token!==nativeSelection)return;
+  if(index<0){$('#nativeAddress').value=address;return toast('Target '+address+' is not retained. Use Analyze address to decode it as a separate saved result.');}
+  nativeMode='assembly';await selectNative(index,address);
+ }catch(e){toast(e.message);}
 }
 function addressButton(address,label){const b=el('button','address-link',label||address||'unresolved');b.onclick=()=>navigateNative(address);return b;}
 function nativeTable(headers,rows){const table=el('table','native-table');const tr=el('tr');headers.forEach(h=>tr.append(el('th','',h)));const head=el('thead');head.append(tr);table.append(head);const body=el('tbody');for(const cells of rows){const row=el('tr');for(const value of cells){const td=el('td');td.append(typeof value==='object'&&value!==null?value:document.createTextNode(String(value??'—')));row.append(td);}body.append(row);}table.append(body);return table;}
 function renderNative(){
- const out=$('#nativeContent');out.replaceChildren();if(!nativeResult)return;
+ const renderToken=++nativeRender;const out=$('#nativeContent');out.replaceChildren();if(!nativeResult)return;
  const data=nativeResult.data,f=nativeFunction;
  document.querySelectorAll('[data-native-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.nativeMode===nativeMode));
  $('#nativeFunctionTitle').textContent=f?nativeTitle(f):'No function selected';
@@ -56,9 +70,18 @@ function renderNative(){
  if(!f){out.append(el('p','muted','No function candidates were decoded. Inspect sections, imports and strings, or use a different engine.'));return;}
  out.append(el('p','native-note',`${f.address} · Basis: ${f.basis}${f.limit_reached?' · Analysis limit reached':''}${f.decode_failures.length?' · Undecodable paths: '+f.decode_failures.length:''}`));
  if(nativeMode==='references'){
- const addresses=new Set(f.instructions.map(i=>i.address));
- const refs=data.references.filter(r=>addresses.has(r.source)||r.target===f.address);
- out.append(nativeTable(['From','To','Kind','Symbol'],refs.map(r=>[addressButton(r.source),r.target?addressButton(r.target):'unresolved',r.kind,r.label||'—'])));return;
+ const item=nativeResult,index=data.functions.findIndex(row=>row.address===f.address);
+ const draw=page=>{
+  if(renderToken!==nativeRender||nativeResult?.id!==item.id)return;
+  const controls=el('div','assembly-pagination'),prev=el('button','','← Previous references'),next=el('button','','Next references →');
+  prev.disabled=!nativeReferencePage;next.disabled=page.offset+page.limit>=page.total;
+  prev.onclick=()=>{nativeReferencePage--;renderNative();};next.onclick=()=>{nativeReferencePage++;renderNative();};
+  controls.append(prev,el('span','',`${page.total} references · Page ${nativeReferencePage+1}`),next);
+  out.append(controls,nativeTable(['From','To','Kind','Symbol'],page.items.map(r=>[addressButton(r.source),r.target?addressButton(r.target):'unresolved',r.kind,r.label||'—'])));
+ };
+ if(item.paged)window.rea.nativeRelated({id:item.id,index,offset:nativeReferencePage*200}).then(draw).catch(e=>{if(renderToken===nativeRender)out.append(el('p','error',e.message));});
+ else{const addresses=new Set(f.instructions.map(i=>i.address)),rows=data.references.filter(r=>addresses.has(r.source)||r.target===f.address);draw({items:rows.slice(nativeReferencePage*200,(nativeReferencePage+1)*200),total:rows.length,offset:nativeReferencePage*200,limit:200});}
+ return;
  }
  if(nativeMode==='graph'){
  const graph=el('div','block-graph');const byAddress=new Map(f.instructions.map(i=>[i.address,i]));
@@ -76,7 +99,7 @@ document.querySelectorAll('[data-native-mode]').forEach(b=>b.onclick=()=>{native
 $('#nativeSearch').oninput=()=>{nativeListPage=0;renderNativeFunctions();};
 const seedToggle=el('button','','Show all discovered candidates');seedToggle.id='nativeSeedToggle';seedToggle.setAttribute('aria-pressed','false');seedToggle.onclick=()=>{nativeSeeds=!nativeSeeds;nativeListPage=0;seedToggle.textContent=nativeSeeds?'Show decoded functions only':'Show all discovered candidates';seedToggle.setAttribute('aria-pressed',String(nativeSeeds));renderNativeFunctions();};$('#nativeSearch').after(seedToggle);
 $('#nativeGo').onclick=()=>{const input=$('#nativeAddress').value.trim().toLowerCase();if(!/^(0x)?[0-9a-f]+$/.test(input))return toast('Enter a hexadecimal virtual address.');navigateNative('0x'+BigInt(input.startsWith('0x')?input:'0x'+input).toString(16));};
-$('#saveAnnotation').onclick=async()=>{if(!nativeResult||!nativeFunction)return;try{nativeNotes=await window.rea.annotate({id:nativeResult.id,address:nativeFunction.address,name:$('#annotationName').value,comment:$('#annotationComment').value});renderNativeFunctions();renderNative();toast('Function name and notes saved to this binary’s project.');}catch(e){toast(e.message);}};
+$('#saveAnnotation').onclick=async()=>{if(!nativeResult||!nativeFunction)return;const id=nativeResult.id;try{const notes=await window.rea.annotate({id,address:nativeFunction.address,name:$('#annotationName').value,comment:$('#annotationComment').value});if(nativeResult?.id!==id)return;nativeNotes=notes;renderNativeFunctions();renderNative();toast('Function name and notes saved to this binary’s project.');}catch(e){toast(e.message);}};
 
 $('#nativeAnalyzeAddress').onclick=async()=>{
  if(busy)return;

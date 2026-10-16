@@ -48,3 +48,20 @@ test('failed streaming export preserves the previous destination',async()=>{
  assert.equal(await fs.readFile(output,'utf8'),'previous evidence');
  assert.equal((await fs.readdir(root)).filter(n=>n.endsWith('.tmp')).length,0);
 });
+
+test('renderer views omit instructions, blocks, references and stdout for old and new records',async()=>{
+ const {store}=await setup();
+ for(const legacy of [false,true]){
+  const item=sample();if(legacy)await fs.writeFile(store.file(item.id),JSON.stringify(item));else await store.save(item);
+  const view=await store.view(item.id);assert.equal(view.paged,true);assert.equal(view.stdout,'');assert.equal(view.data.references,undefined);
+  assert.equal(view.data.functions[0].instructions,undefined);assert.equal(view.data.functions[0].blocks,undefined);assert.equal(view.data.functions[0].instructionCount,450);
+  assert.deepEqual(await store.function(item.id,0),item.data.functions[0]);assert.equal(await store.locate(item.id,'0x100a'),0);assert.equal(await store.locate(item.id,'0x9999'),-1);
+ }
+});
+test('related references page through matches across chunk boundaries',async()=>{
+ const {store}=await setup(),item=sample();item.data.references=item.data.references.map((r,i)=>({...r,source:i%2?'other':'0x1000'}));await store.save(item);
+ const first=await store.related(item.id,0),last=await store.related(item.id,0,200);
+ assert.equal(first.total,225);assert.equal(first.items.length,200);assert.equal(last.items.length,25);
+ assert.deepEqual([...first.items,...last.items],item.data.references.filter(r=>r.source==='0x1000'));
+ await assert.rejects(store.related(item.id,0,-1));
+});
