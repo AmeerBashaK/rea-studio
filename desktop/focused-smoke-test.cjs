@@ -16,6 +16,21 @@ const assert=require('node:assert/strict');
   await page.click('#openFile');await page.click('#runWorkflow');
   await page.waitForFunction(()=>current?.data?.schema==='studio-native/1');
   const original=await page.evaluate(()=>current.id);
+  await page.click('[data-tab="native"]');await page.locator('#nativeBookmark:not([disabled])').waitFor();
+  await page.fill('#annotationName','saved_entry');await page.fill('#annotationComment','keep my note');
+  await page.click('#nativeBookmark');await page.locator('#nativeBookmark[aria-pressed="true"]').waitFor();
+  assert.equal(await page.locator('#annotationComment').inputValue(),'keep my note');
+  await page.click('#saveAnnotation');await page.locator('#toast').filter({hasText:'Function name and notes saved'}).waitFor();
+  await page.click('#nativeBookmarkFilter');assert.equal(await page.locator('#nativeFunctions .native-function').count(),1);await page.click('#nativeBookmarkFilter');
+  // Concurrent edits must merge instead of losing the bookmark or name/comment.
+  await page.evaluate(async id=>Promise.all([
+   window.rea.annotate({id,address:'0x140001020',name:'helper_note',comment:'concurrent note'}),
+   window.rea.bookmark({id,address:'0x140001020',bookmarked:true})
+  ]),original);
+  const notes=await page.evaluate(id=>window.rea.annotations(id),original);
+  assert.equal(notes['0x140001020'].bookmarked,true);assert.equal(notes['0x140001020'].name,'helper_note');
+  assert.equal(notes['0x140001000'].bookmarked,true);assert.equal(notes['0x140001000'].comment,'keep my note');
+
   const snapshot=await page.evaluate(async id=>JSON.stringify(await window.rea.result(id)),original);
   const changed=Buffer.from(bytes);changed[544]=0xc3;await fs.writeFile(sample,changed);
   await page.click('[data-tab="native"]');await page.fill('#nativeAddress','140001020');await page.click('#nativeAnalyzeAddress');
@@ -42,6 +57,11 @@ const assert=require('node:assert/strict');
   const saved=await page.evaluate(async ids=>Promise.all(ids.map(id=>window.rea.result(id))),[original,cancelled,restarted]);
   assert.equal(saved[0].data.subject.sha256,saved[2].data.subject.sha256);
   assert.equal(saved[1].cancelled,true);assert.equal(saved[2].parentId,original);
+  const reopenedNotes=await page.evaluate(id=>window.rea.annotations(id),original);
+  assert.equal(reopenedNotes['0x140001000'].bookmarked,true);assert.equal(reopenedNotes['0x140001000'].name,'saved_entry');
+  await page.evaluate(id=>window.rea.bookmark({id,address:'0x140001000',bookmarked:false}),original);
+  const removed=await page.evaluate(id=>window.rea.annotations(id),original);
+  assert.equal(removed['0x140001000'].bookmarked,false);assert.equal(removed['0x140001000'].comment,'keep my note');
   assert.deepEqual(errors,[]);
   await fs.writeFile(path.join(folder,'verification.json'),JSON.stringify({passed:true,original,cancelled,restarted,checks:['input replacement rejected','original record unchanged','worker cancelled','restart succeeded','records survived reload']},null,2));
   console.log('PASS: file replacement rejected, original evidence unchanged, actual worker cancelled, restart successful, history persisted, no renderer errors.');

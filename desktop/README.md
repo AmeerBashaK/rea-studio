@@ -60,3 +60,9 @@ One local run on the 92,825,416-byte Node executable retained 256 candidates and
 ## Native navigation history (development source)
 
 **Back** and **Forward** restore visited functions/addresses together with assembly page, reference page, candidate-list page and view mode. Following a new destination after going back replaces the forward path. History keeps at most 100 locations for the currently opened analysis and resets on switching results or reloading the app; it is not a persistent bookmark system. Failed/unresolved jumps are not added. Navigation tokens keep delayed loads from replacing a newer selection.
+
+## Persistent function bookmarks (development source)
+
+Use **Bookmark** beside Save to mark the selected decoded function. **Show bookmarks only** filters the current candidate list. Bookmarks are saved with names/notes under the binary's SHA-256 identity and survive reload and other analyses of identical bytes. Removing a bookmark preserves names and comments. Bookmarking does not save or discard unsubmitted text in the annotation fields.
+
+The filter covers candidates retained in the currently opened result, not a global address inventory. Bookmark/annotation writes are serialized within one running app process and written through a temporary file; simultaneous edits in multiple app instances are not yet coordinated. Focused desktop tests cover bookmarking, filter behavior, reload, removal and concurrent note/bookmark updates.

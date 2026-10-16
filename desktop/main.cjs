@@ -104,13 +104,28 @@ async function annotationPath(id){
   return {file:path.join(dir,item.data.subject.sha256+'.json'),item};
 }
 ipcMain.handle('annotations',async(_e,id)=>{const {file}=await annotationPath(id);try{return JSON.parse(await fs.readFile(file,'utf8'));}catch(e){if(e.code==='ENOENT')return {};throw e;}});
-ipcMain.handle('annotate',async(_e,{id,address,name,comment})=>{
+const annotationWrites=new Map();
+async function changeAnnotation(id,address,patch){
   const {file,item}=await annotationPath(id);
-  if(!item.data.functions.some(f=>f.address===address)||typeof name!=='string'||name.length>120||typeof comment!=='string'||comment.length>4000)throw Error('Invalid function annotation.');
-  let values={};try{values=JSON.parse(await fs.readFile(file,'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
-  values[address]={name:name.trim(),comment,updated:new Date().toISOString()};
-  const temporary=file+'.'+require('node:crypto').randomUUID()+'.tmp';
-  await fs.writeFile(temporary,JSON.stringify(values,null,2));await fs.rename(temporary,file);return values;
+  if(!item.data.functions.some(f=>f.address===address))throw Error('Invalid function annotation.');
+  const previous=annotationWrites.get(file)||Promise.resolve();
+  const write=previous.catch(()=>{}).then(async()=>{
+    let values={};try{values=JSON.parse(await fs.readFile(file,'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
+    values[address]={...values[address],...patch,updated:new Date().toISOString()};
+    const temporary=file+'.'+require('node:crypto').randomUUID()+'.tmp';
+    await fs.writeFile(temporary,JSON.stringify(values,null,2));await fs.rename(temporary,file);return values;
+  });
+  annotationWrites.set(file,write);
+  const clear=()=>{if(annotationWrites.get(file)===write)annotationWrites.delete(file);};
+  write.then(clear,clear);return write;
+}
+ipcMain.handle('annotate',async(_e,{id,address,name,comment})=>{
+  if(typeof name!=='string'||name.length>120||typeof comment!=='string'||comment.length>4000)throw Error('Invalid function annotation.');
+  return changeAnnotation(id,address,{name:name.trim(),comment});
+});
+ipcMain.handle('bookmark',async(_e,{id,address,bookmarked})=>{
+  if(typeof bookmarked!=='boolean')throw Error('Invalid bookmark state.');
+  return changeAnnotation(id,address,{bookmarked});
 });
 ipcMain.handle('cancel',cancel);
 ipcMain.handle('history',async()=>{

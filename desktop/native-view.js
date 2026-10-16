@@ -3,6 +3,7 @@
 let nativeResult=null,nativeFunction=null,nativeNotes={},nativeMode='assembly',nativePage=0;
 const nativePageSize=150;
 let nativeSeeds=false,nativeListPage=0,nativeSelection=0,nativeRender=0,nativeReferencePage=0;
+let nativeBookmarksOnly=false;
 const nativeListSize=100;
 let nativeTrail=[],nativeTrailIndex=-1,nativeLocation=null;
 function rememberNativeView(){
@@ -33,7 +34,7 @@ function renderNativeFunctions(){
  const data=nativeResult.data;
  const decoded=new Map(data.functions.map(f=>[f.address,f]));
  const candidates=nativeSeeds?(data.seeds||data.functions):data.functions;
- const rows=candidates.filter(f=>`${nativeTitle(f)} ${f.address}`.toLowerCase().includes(query));
+ const rows=candidates.filter(f=>(!nativeBookmarksOnly||nativeNotes[f.address]?.bookmarked)&&`${nativeTitle(f)} ${f.address}`.toLowerCase().includes(query));
  const pages=Math.max(1,Math.ceil(rows.length/nativeListSize));nativeListPage=Math.min(nativeListPage,pages-1);
  const controls=el('div','assembly-pagination');
  const prev=el('button','','←');prev.setAttribute('aria-label','Previous candidates');prev.disabled=!nativeListPage;prev.onclick=()=>{nativeListPage--;renderNativeFunctions();};
@@ -42,7 +43,7 @@ function renderNativeFunctions(){
  for(const candidate of rows.slice(nativeListPage*nativeListSize,(nativeListPage+1)*nativeListSize)){
   const f=decoded.get(candidate.address);
   const b=el('button','native-function'+(f&&f.address===nativeFunction?.address?' selected':''));
-  b.append(el('strong','',nativeTitle(candidate)),el('small','',`${candidate.address} · ${f?(f.instructionCount??f.instructions?.length??0)+' instructions':'Not decoded in this result'}`));
+  b.append(el('strong','',(nativeNotes[candidate.address]?.bookmarked?'★ ':'')+nativeTitle(candidate)),el('small','',`${candidate.address} · ${f?(f.instructionCount??f.instructions?.length??0)+' instructions':'Not decoded in this result'}`));
   b.onclick=()=>{if(f){selectNative(data.functions.indexOf(f));}else{$('#nativeAddress').value=candidate.address;toast('Candidate selected. Choose Analyze address to decode it in a separate result.');}};
   list.append(b);
  }
@@ -52,7 +53,7 @@ async function selectNative(index,address=null,options={}){
  rememberNativeView();
  const previous=nativeFunction;
  const item=nativeResult,token=++nativeSelection;nativeRender++;nativeFunction=null;nativeReferencePage=0;
- $('#nativeContent').textContent='Loading function…';$('#saveAnnotation').disabled=true;
+ $('#nativeContent').textContent='Loading function…';$('#saveAnnotation').disabled=true;updateBookmarkButton();
  try{
   const f=item.paged?await window.rea.nativeFunction({id:item.id,index}):item.data.functions[index];
   if(nativeResult?.id!==item.id||token!==nativeSelection)return;
@@ -85,6 +86,7 @@ async function navigateNative(address){
 function addressButton(address,label){const b=el('button','address-link',label||address||'unresolved');b.onclick=()=>navigateNative(address);return b;}
 function nativeTable(headers,rows){const table=el('table','native-table');const tr=el('tr');headers.forEach(h=>tr.append(el('th','',h)));const head=el('thead');head.append(tr);table.append(head);const body=el('tbody');for(const cells of rows){const row=el('tr');for(const value of cells){const td=el('td');td.append(typeof value==='object'&&value!==null?value:document.createTextNode(String(value??'—')));row.append(td);}body.append(row);}table.append(body);return table;}
 function renderNative(){
+ updateBookmarkButton();
  rememberNativeView();nativeHistoryButtons();
  const renderToken=++nativeRender;const out=$('#nativeContent');out.replaceChildren();if(!nativeResult)return;
  const data=nativeResult.data,f=nativeFunction;
@@ -142,3 +144,19 @@ $('#nativeAnalyzeAddress').onclick=async()=>{
 const nativeBack=el('button','','← Back');nativeBack.id='nativeBack';nativeBack.disabled=true;nativeBack.onclick=()=>moveNativeHistory(-1);
 const nativeForward=el('button','','Forward →');nativeForward.id='nativeForward';nativeForward.disabled=true;nativeForward.onclick=()=>moveNativeHistory(1);
 $('#nativeGo').before(nativeBack,nativeForward);
+
+function updateBookmarkButton(){
+ const button=$('#nativeBookmark');if(!button)return;
+ const saved=!!nativeNotes[nativeFunction?.address]?.bookmarked;
+ button.disabled=!nativeFunction;button.textContent=saved?'★ Bookmarked':'☆ Bookmark';button.setAttribute('aria-pressed',String(saved));
+}
+const bookmarkButton=el('button','','☆ Bookmark');bookmarkButton.id='nativeBookmark';bookmarkButton.disabled=true;bookmarkButton.setAttribute('aria-pressed','false');$('#saveAnnotation').after(bookmarkButton);
+bookmarkButton.onclick=async()=>{
+ if(!nativeResult||!nativeFunction)return;
+ const id=nativeResult.id,address=nativeFunction.address,bookmarked=!nativeNotes[address]?.bookmarked;
+ bookmarkButton.disabled=true;
+ try{const notes=await window.rea.bookmark({id,address,bookmarked});if(nativeResult?.id!==id)return;nativeNotes=notes;renderNativeFunctions();toast(bookmarked?'Function bookmarked.':'Bookmark removed.');}
+ catch(e){toast(e.message);}finally{updateBookmarkButton();}
+};
+const bookmarkFilter=el('button','','Show bookmarks only');bookmarkFilter.id='nativeBookmarkFilter';bookmarkFilter.setAttribute('aria-pressed','false');$('#nativeSearch').after(bookmarkFilter);
+bookmarkFilter.onclick=()=>{nativeBookmarksOnly=!nativeBookmarksOnly;nativeListPage=0;bookmarkFilter.textContent=nativeBookmarksOnly?'Show all functions':'Show bookmarks only';bookmarkFilter.setAttribute('aria-pressed',String(nativeBookmarksOnly));renderNativeFunctions();};

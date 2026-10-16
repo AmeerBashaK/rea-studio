@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('rea',{
   nativePage:value=>ipcRenderer.invoke('native-page',value),
   focus:value=>ipcRenderer.invoke('focus',value),
   export:id=>ipcRenderer.invoke('export',id),
+  bookmark:value=>ipcRenderer.invoke('bookmark',value),
   annotations:id=>ipcRenderer.invoke('annotations',id),annotate:value=>ipcRenderer.invoke('annotate',value),
   onEvent:fn=>{ipcRenderer.on('event',(_e,data)=>fn(data));}
 });
