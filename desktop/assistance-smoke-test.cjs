@@ -17,6 +17,15 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
  await page.click('#agentSave');await page.locator('#toast').filter({hasText:'AI tool saved'}).waitFor();
  await page.fill('#agentPrompt','Explain this');await page.click('#agentContext');assert.match(await page.locator('#agentPrompt').inputValue(),/UNTRUSTED ANALYSIS DATA/);
  await page.click('#agentRun');await page.locator('#agentOutput').filter({hasText:'received: Explain this'}).waitFor();
+ const sourceFile=path.join(profile,'snippet.js');await fs.writeFile(sourceFile,'const value = 42;\nconsole.log(value);\n');
+ await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});},sourceFile);
+ await page.click('#openFile');await page.locator('#files button').filter({hasText:'snippet.js'}).click();
+ await page.locator('#sourceText').filter({hasText:'console.log(value)'}).waitFor();
+ await page.evaluate(()=>{const text=document.querySelector('#sourceText').firstChild,range=document.createRange();range.setStart(text,text.textContent.indexOf('console'));range.setEnd(text,text.textContent.indexOf('console')+7);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);});
+ await page.click('#explainSelection');assert.match(await page.locator('#agentPrompt').inputValue(),/"firstLine": 2/);
+ assert.match(await page.locator('#agentPrompt').inputValue(),/console.log\(value\)/);
+ assert.match(await page.locator('#agentOutput').textContent(),/received: Explain this/);
+ await page.screenshot({path:path.join(profile,'ai-tools.png')});
  await page.reload();await page.waitForFunction(()=>document.querySelector('#agentName').value==='Echo test');assert.deepEqual(errors,[]);
  console.log('PASS explanations, JSON export, agent profile persistence and real CLI stdin/output');
  }finally{await app.close();}

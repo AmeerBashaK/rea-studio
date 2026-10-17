@@ -15,3 +15,16 @@ agentAction('#agentRun',async()=>{$('#agentRun').disabled=true;$('#agentOutput')
 agentAction('#agentStop',()=>window.rea.agentStop());
 const explainedButton=el('button','','Export explained JSON');explainedButton.id='exportExplained';$('#export').after(explainedButton);
 agentAction('#exportExplained',async()=>{if(!current)throw Error('Open an analysis first.');if(await window.rea.exportExplained(current.id))toast('Explained JSON exported.');});
+
+// Preserve selection when the action button takes focus.
+$('#explainSelection').onmousedown=event=>event.preventDefault();
+agentAction('#explainSelection',()=>{
+ const selection=window.getSelection(),source=$('#sourceText');
+ if(!selection||selection.rangeCount!==1||selection.isCollapsed)throw Error('Select source lines in the preview first.');
+ const range=selection.getRangeAt(0);
+ if(!source.contains(range.startContainer)||!source.contains(range.endContainer))throw Error('Select text inside the source preview.');
+ const before=document.createRange();before.selectNodeContents(source);before.setEnd(range.startContainer,range.startOffset);
+ const start=before.toString().length,end=start+range.toString().length;
+ const snippet=ReaSnippet.snippet(source.textContent,start,end,$('#sourceTitle').textContent);
+ $('#agentPrompt').value=ReaSnippet.prompt(snippet);tab('agents');toast('Source lines '+snippet.firstLine+'–'+snippet.lastLine+' prepared. Review the prompt and choose your AI tool.');
+});

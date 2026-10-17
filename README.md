@@ -72,3 +72,6 @@ Validation: local controlled stdin/output CLI, cancellation, restart, spawn fail
 
 
 Instruction glossary v2 names operands for common data movement, arithmetic, stack operations and control transfers. Supported conditional branches describe their actual flag/register test; they do not assume a preceding comparison or infer a business rule. Memory reads and address calculation are distinguished. These are partial explanations rather than a complete semantics engine (width-dependent effects and exceptional behavior are not exhaustively modeled). Reference: [Intel instruction-set manuals](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html).
+
+
+In Source preview, select text and choose **Explain selected lines with AI**. REA expands the selection to whole lines, preserves original line numbers and prepares a prompt in AI tools requesting a section summary and explanation of every line. Review it and click Run agent to send it to your configured CLI. Nothing runs or sends automatically. The selected snippet is limited to 20,000 characters; this does not limit binary input size. AI explanations remain unverified and are not merged into the original evidence/export automatically.

@@ -40,3 +40,16 @@ test('English descriptions name operands without guessing program intent',()=>{
  assert.doesNotMatch(english.instruction({mnemonic:'cmp',operands:'eax, ebx'}).english,/equal/);
  assert.equal(english.instruction({mnemonic:'vzeroupper'}).certainty,'unsupported');
 });
+
+test('source selection preserves full lines and exact provenance',()=>{
+ const {snippet,prompt}=require('./snippets.js');
+ const text='const x = 1;\r\n\r\nconsole.log(x);\r\n';
+ const result=snippet(text,text.indexOf('console')+2,text.indexOf('console')+5,'sample.js');
+ assert.deepEqual(result.lines,[{line:3,text:'console.log(x);'}]);
+ assert.equal(result.firstLine,3);assert.equal(result.lastLine,3);
+ assert.match(prompt(result),/EVERY numbered line/);assert.match(prompt(result),/UNTRUSTED SOURCE DATA/);
+ assert.equal(snippet('a\nb\nc',0,2,'test').lastLine,1);
+ assert.deepEqual(snippet('\na',0,1,'test').lines,[{line:1,text:''}]);
+ assert.throws(()=>snippet('a',0,0,'test'),/Select/);
+ assert.throws(()=>snippet('x'.repeat(20001),0,1,'test'),/fewer lines/);
+});
