@@ -25,6 +25,14 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
  await page.click('#explainSelection');assert.match(await page.locator('#agentPrompt').inputValue(),/"firstLine": 2/);
  assert.match(await page.locator('#agentPrompt').inputValue(),/console.log\(value\)/);
  assert.match(await page.locator('#agentOutput').textContent(),/received: Explain this/);
+ const answer={summary:'Prints a value.',lines:[{line:2,english:'Displays value in the console.',uncertainty:'Its value depends on surrounding code.'}]};
+ await page.fill('#agentArgs',JSON.stringify(['-e','process.stdin.resume();process.stdin.on("end",()=>console.log('+JSON.stringify(JSON.stringify(answer))+'));']));
+ await page.click('#agentRun');await page.locator('#exportSourceExplanation').waitFor();await page.waitForFunction(()=>!document.querySelector('#exportSourceExplanation').disabled);
+ await page.click('#exportSourceExplanation');await page.locator('#toast').filter({hasText:'Source explanations exported'}).waitFor();
+ const sourceReport=JSON.parse(await fs.readFile(path.join(profile,'explained.json'),'utf8'));
+ assert.equal(sourceReport.schema,'rea-source-explanation/1');assert.equal(sourceReport.source.lines[0].text,'console.log(value);');assert.deepEqual(sourceReport.explanation,answer);
+ await page.fill('#agentArgs',JSON.stringify(['-e','process.stdin.resume();process.stdin.on("end",()=>console.log("not JSON"));']));
+ await page.click('#agentRun');await page.locator('#agentOutput').filter({hasText:'Cannot export line explanations'}).waitFor();assert.equal(await page.locator('#exportSourceExplanation').isDisabled(),true);
  const priorOutput=await page.locator('#agentOutput').textContent();
  await app.evaluate(({dialog})=>{dialog.showOpenDialog=async()=>({canceled:true,filePaths:[]});});
  await page.click('#agentClaude');assert.equal(await page.locator('#agentName').inputValue(),'Echo test');

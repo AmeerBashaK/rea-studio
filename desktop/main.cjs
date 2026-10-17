@@ -181,3 +181,12 @@ ipcMain.handle('export-explained',async(_e,id)=>{
  const report={schema:'rea-explained/1',analysisId:id,notice:'Original evidence is preserved separately. Explanations are a limited offline glossary, not verified program intent or AI conclusions.',evidence,explained:require('./english.js').annotated(evidence)};
  const temp=r.filePath+'.'+require('node:crypto').randomUUID()+'.tmp';await fs.writeFile(temp,JSON.stringify(report,null,2));await fs.rename(temp,r.filePath);return true;
 });
+
+ipcMain.handle('export-source-explanation',async(_e,payload)=>{
+ const report=require('./snippets.js').report(payload?.source,payload?.response,payload?.provider);
+ const r=await dialog.showSaveDialog(win,{defaultPath:'rea-source-explanation.json',filters:[{name:'Source line explanations',extensions:['json']}]});
+ if(r.canceled)return false;
+ const temp=r.filePath+'.'+require('node:crypto').randomUUID()+'.tmp';
+ try{await fs.writeFile(temp,JSON.stringify(report,null,2));await fs.rename(temp,r.filePath);}finally{await fs.rm(temp,{force:true}).catch(()=>{});}
+ return true;
+});

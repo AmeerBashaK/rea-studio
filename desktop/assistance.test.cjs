@@ -62,3 +62,14 @@ test('Claude preset returns independent literal argument arrays without permissi
  p.args.push('changed');assert.equal(create('claude',p.executable).args.includes('changed'),false);
  assert.throws(()=>create('unknown',p.executable),/Unknown/);
 });
+
+test('source explanation validation rejects missing, duplicate and invented lines',()=>{
+ const {snippet,report}=require('./snippets.js'),source=snippet('x\n\ny',0,4,'sample');
+ const data={summary:'Summary',lines:source.lines.map(v=>({line:v.line,english:'Explanation',uncertainty:'none'}))};
+ const valid=report(source,JSON.stringify(data),'Fixture');assert.deepEqual(valid.source,source);assert.match(valid.notice,/not correctness/);
+ valid.source.lines[0].text='changed';assert.equal(source.lines[0].text,'x');
+ for(const lines of [data.lines.slice(1),[data.lines[0],data.lines[0]],data.lines.map(v=>({...v,line:999})),data.lines.map(v=>({...v,english:''}))])assert.throws(()=>report(source,JSON.stringify({...data,lines}),'Fixture'));
+ assert.throws(()=>report(source,'```json {} ```','Fixture'));
+ assert.throws(()=>report({...source,lastLine:999},JSON.stringify(data),'Fixture'));
+ assert.throws(()=>report(source,'null','Fixture'));
+});
