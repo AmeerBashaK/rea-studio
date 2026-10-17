@@ -58,3 +58,14 @@ This repository publishes source and build scripts. The previous local Windows 1
 ## Help improve it
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md). Report reproducible failures, improve documentation, add tests, or work on the [roadmap](PRODUCT-ROADMAP.md). No paid account is required to use the native engine. Performance and correctness claims should include reproducible evidence; existing tests do not establish parity with commercial tools.
+
+
+## English explanations and local AI tools (development source)
+
+The assembly table includes a plain-English instruction glossary. Evidence leaf fields include explanatory notes. **Export explained JSON** creates `rea-explained/1`: original `evidence` plus an `explained` copy with `_rea_explanation` and `_rea_fields` entries. JSON remains valid; ordinary raw export is unchanged. This is a limited offline glossary, not source-code translation or recovery of program intent. Unsupported instructions and unknown fields are explicitly described as unknown/context-dependent. Explained export currently reconstructs the saved result in memory.
+
+The **AI tools** tab saves up to 20 local CLI profiles: name, absolute `.exe` path, and an argument array. Use a tool’s non-interactive mode that reads the prompt from stdin and exits. For Node-based CLIs select `node.exe` with the CLI script path as the first argument. Install/authenticate using the provider’s normal process first; REA does not install tools or store API keys. Only the entered prompt is supplied; selected native function evidence can be appended explicitly. Target content is marked untrusted data, but this is not a sandbox or a guarantee against prompt injection.
+
+Each launch shows the executable/arguments and requires Run tool confirmation. The CLI runs with the user’s Windows permissions in a dedicated `agent-work` directory, may change files or contact its provider, and retains its own approval behavior. No automatic approval flags are inserted. Output is capped at 2 MB; runtime at five minutes; Stop terminates the launched process tree. Interactive terminal sessions and automatic CLI discovery are not supported. Agent output is displayed as unverified text, separately from saved evidence. Provider subscriptions/charges, if any, remain the user’s choice.
+
+Validation: local controlled stdin/output CLI, cancellation, restart, spawn failure, output limits, profile persistence, explained JSON and native workflow regression. Individual commercial AI providers have not been certified by these tests.

@@ -155,3 +155,29 @@ ipcMain.handle('export',async(_e,id)=>{
   if(out.canceled)return false;
   await results().export(id,out.filePath);return true;
 });
+
+const {AgentRunner,validate:validateAgent}=require('./agent-runner.cjs');
+const agentRunner=new AgentRunner();
+const agentProfiles=()=>path.join(app.getPath('userData'),'agent-profiles.json');
+ipcMain.handle('agent-profiles',async()=>{try{return JSON.parse(await fs.readFile(agentProfiles(),'utf8'));}catch(e){if(e.code==='ENOENT')return [];throw e;}});
+ipcMain.handle('agent-save',async(_e,profiles)=>{
+ if(!Array.isArray(profiles)||profiles.length>20)throw Error('At most 20 tools are supported.');
+ const values=profiles.map(validateAgent);for(const p of values)if(!(await fs.stat(p.executable)).isFile())throw Error('Executable not found.');
+ const file=agentProfiles(),temp=file+'.tmp';await fs.writeFile(temp,JSON.stringify(values,null,2));await fs.rename(temp,file);return values;
+});
+ipcMain.handle('agent-pick',async()=>{const r=await dialog.showOpenDialog(win,{properties:['openFile'],filters:[{name:'CLI executable',extensions:['exe']}]});return r.canceled?null:r.filePaths[0];});
+ipcMain.handle('agent-run',async(_e,{profile,prompt})=>{
+ const p=validateAgent(profile);
+ const consent=await dialog.showMessageBox(win,{type:'question',buttons:['Cancel','Run tool'],defaultId:0,cancelId:0,title:'Run local agent',message:'Run '+p.name+'?',detail:p.executable+'\nArguments: '+JSON.stringify(p.args)+'\nThis tool runs with your Windows account permissions. It may change files or send your prompt to its provider. Only the text in the prompt is supplied by REA. Use the CLI’s own approval settings.'});
+ if(consent.response!==1)return {cancelled:true};
+ const cwd=path.join(app.getPath('userData'),'agent-work');await fs.mkdir(cwd,{recursive:true});return agentRunner.run(p,prompt,cwd);
+});
+ipcMain.handle('agent-stop',()=>agentRunner.cancel());
+app.on('before-quit',()=>agentRunner.cancel());
+ipcMain.handle('export-explained',async(_e,id)=>{
+ const item=await results().read(id),r=await dialog.showSaveDialog(win,{defaultPath:'rea-explained.json',filters:[{name:'JSON with explanations',extensions:['json']}]});
+ if(r.canceled)return false;
+ const evidence=item.data||{stdout:item.stdout,stderr:item.stderr};
+ const report={schema:'rea-explained/1',analysisId:id,notice:'Original evidence is preserved separately. Explanations are a limited offline glossary, not verified program intent or AI conclusions.',evidence,explained:require('./english.js').annotated(evidence)};
+ const temp=r.filePath+'.'+require('node:crypto').randomUUID()+'.tmp';await fs.writeFile(temp,JSON.stringify(report,null,2));await fs.rename(temp,r.filePath);return true;
+});

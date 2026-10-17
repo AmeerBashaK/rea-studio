@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 const {contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('rea',{
+  agentProfiles:()=>ipcRenderer.invoke('agent-profiles'),agentSave:p=>ipcRenderer.invoke('agent-save',p),agentPick:()=>ipcRenderer.invoke('agent-pick'),agentRun:p=>ipcRenderer.invoke('agent-run',p),agentStop:()=>ipcRenderer.invoke('agent-stop'),exportExplained:id=>ipcRenderer.invoke('export-explained',id),
   info:()=>ipcRenderer.invoke('info'), choose:kind=>ipcRenderer.invoke('choose',kind),
   files:relative=>ipcRenderer.invoke('files',relative), read:relative=>ipcRenderer.invoke('read',relative),
   run:args=>ipcRenderer.invoke('run',args), cancel:()=>ipcRenderer.invoke('cancel'),

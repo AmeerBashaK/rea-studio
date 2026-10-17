@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '24'
       - run: New-Item -ItemType Directory -Force verification
-      - run: node --test desktop/engine-info.test.cjs desktop/result-store.test.cjs desktop/graph-layout.test.cjs
+      - run: node --test desktop/assistance.test.cjs desktop/engine-info.test.cjs desktop/result-store.test.cjs desktop/graph-layout.test.cjs
 
   compiler-corpus:
     runs-on: windows-latest
