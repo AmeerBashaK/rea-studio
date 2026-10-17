@@ -20,3 +20,10 @@ Large-input run: 92,825,416-byte Node executable, 256 retained function candidat
 ## Limits
 
 Windows PE x86/x64 static analysis only. Recovery remains bounded and incomplete; indirect targets can remain unresolved. Reference search covers retained references related to the selected function. Full initial worker output is buffered. No decompiler, debugger, binary comparison, or commercial-tool parity claim. AGPL-3.0-only applies to original code; third-party components retain their licenses.
+
+
+## Assistance package refresh — 2026-10-18
+
+Rebuilt Windows x64 package includes offline operand explanations, explained evidence JSON, configurable local CLI profiles, Claude setup preset, selected-source prompts and validated line-explanation export. All six packaged suites passed: native, focused, single-instance, large-input, legacy and assistance. The first three passed before a session interruption; the remaining three were rerun to recover reliable final output. Assistance now supports REA_TEST_EXE. Tests use local fixtures, not authenticated AI providers.
+
+Latest large-input run: same 92,825,416-byte input, 256 functions, 10003 instructions, 1986ms open-to-result; 114 samples, sampled working-set peak 596127744 bytes and private peak 525856768 bytes, observed CPU 6281.25ms. Sampling limitations above still apply; no controlled speed comparison. Installer licensing inventory and clean-machine/upgrade acceptance remain pending. Installed app is unchanged.

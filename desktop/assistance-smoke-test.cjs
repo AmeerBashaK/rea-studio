@@ -3,7 +3,7 @@ const {_electron}=require('../rea/node_modules/playwright-core');
 const fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const profile=await fs.mkdtemp(path.resolve('verification/assistance-'));
- const app=await _electron.launch({executablePath:require('../desktop/node_modules/electron'),args:[path.resolve('desktop'),'--user-data-dir='+profile]});
+ const app=await _electron.launch({executablePath:process.env.REA_TEST_EXE||require('../desktop/node_modules/electron'),args:[...(process.env.REA_TEST_EXE?[]:[path.resolve('desktop')]),'--user-data-dir='+profile],timeout:60000});
  try{
  const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.locator('#status').filter({hasText:'Engine ready'}).waitFor({timeout:60000});
