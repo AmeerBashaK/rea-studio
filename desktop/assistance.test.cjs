@@ -53,3 +53,12 @@ test('source selection preserves full lines and exact provenance',()=>{
  assert.throws(()=>snippet('a',0,0,'test'),/Select/);
  assert.throws(()=>snippet('x'.repeat(20001),0,1,'test'),/fewer lines/);
 });
+
+test('Claude preset returns independent literal argument arrays without permission bypass',()=>{
+ const {create}=require('./agent-presets.js');
+ const p=create('claude','C:\\Tools\\claude.exe');
+ assert.equal(p.executable,'C:\\Tools\\claude.exe');
+ assert.deepEqual(p.args,['-p','--input-format','text','--output-format','text','--tools','','--disallowedTools','mcp__*']);
+ p.args.push('changed');assert.equal(create('claude',p.executable).args.includes('changed'),false);
+ assert.throws(()=>create('unknown',p.executable),/Unknown/);
+});

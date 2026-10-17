@@ -25,6 +25,14 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
  await page.click('#explainSelection');assert.match(await page.locator('#agentPrompt').inputValue(),/"firstLine": 2/);
  assert.match(await page.locator('#agentPrompt').inputValue(),/console.log\(value\)/);
  assert.match(await page.locator('#agentOutput').textContent(),/received: Explain this/);
+ const priorOutput=await page.locator('#agentOutput').textContent();
+ await app.evaluate(({dialog})=>{dialog.showOpenDialog=async()=>({canceled:true,filePaths:[]});});
+ await page.click('#agentClaude');assert.equal(await page.locator('#agentName').inputValue(),'Echo test');
+ await app.evaluate(({dialog})=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:['C:\\Tools\\claude.exe']});});
+ await page.click('#agentClaude');assert.equal(await page.locator('#agentName').inputValue(),'Claude Code explanations');
+ assert.equal(await page.locator('#agentProfiles').evaluate(e=>e.selectedIndex),-1);
+ assert.deepEqual(JSON.parse(await page.locator('#agentArgs').inputValue()),require('./agent-presets.js').create('claude','').args);
+ assert.equal(await page.locator('#agentOutput').textContent(),priorOutput);
  await page.screenshot({path:path.join(profile,'ai-tools.png')});
  await page.reload();await page.waitForFunction(()=>document.querySelector('#agentName').value==='Echo test');assert.deepEqual(errors,[]);
  console.log('PASS explanations, JSON export, agent profile persistence and real CLI stdin/output');

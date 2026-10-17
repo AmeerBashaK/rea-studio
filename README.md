@@ -75,3 +75,10 @@ Instruction glossary v2 names operands for common data movement, arithmetic, sta
 
 
 In Source preview, select text and choose **Explain selected lines with AI**. REA expands the selection to whole lines, preserves original line numbers and prepares a prompt in AI tools requesting a section summary and explanation of every line. Review it and click Run agent to send it to your configured CLI. Nothing runs or sends automatically. The selected snippet is limited to 20,000 characters; this does not limit binary input size. AI explanations remain unverified and are not merged into the original evidence/export automatically.
+
+
+### Claude Code explanation preset
+
+AI tools offers a new unsaved Claude Code profile after selecting an installed `claude.exe`. Save it explicitly; existing profiles are preserved. The preset uses print mode, text input/output, disables built-in tools with `--tools ""`, and denies MCP tools with `--disallowedTools "mcp__*"`. It does not install/authenticate or start a request. Local CLI configuration and hooks can still run: these options are not an OS sandbox. Provider accounts, costs and terms remain separate from REA's subscription-free native analysis.
+
+Arguments follow the [official Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference), checked 2026-10-17. Tested locally with fixtures and UI checks; no authenticated Claude request or provider-version compatibility certification yet. Gemini headless integration was researched in its [official reference](https://geminicli.com/docs/cli/headless/); a dedicated preset remains pending.

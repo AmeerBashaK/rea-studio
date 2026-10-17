@@ -28,3 +28,11 @@ agentAction('#explainSelection',()=>{
  const snippet=ReaSnippet.snippet(source.textContent,start,end,$('#sourceTitle').textContent);
  $('#agentPrompt').value=ReaSnippet.prompt(snippet);tab('agents');toast('Source lines '+snippet.firstLine+'–'+snippet.lastLine+' prepared. Review the prompt and choose your AI tool.');
 });
+
+agentAction('#agentClaude',async()=>{
+ const executable=await window.rea.agentPick();if(!executable)return;
+ if(!/[/\\]claude\.exe$/i.test(executable))throw Error('Choose the installed claude.exe for this preset.');
+ $('#agentProfiles').selectedIndex=-1;fillAgent(ReaAgentPresets.create('claude',executable));
+ $('#agentPresetNote').textContent='Claude Code: print mode with built-in and MCP tools disabled by arguments. Local configuration and hooks may still run; this is not a sandbox. Install and sign in separately. Provider compatibility is not yet verified. Review and save this new profile.';
+ toast('Claude explanation profile prepared. Review and save it.');
+});
