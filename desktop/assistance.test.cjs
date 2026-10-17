@@ -29,3 +29,14 @@ test('agent failure and output overflow are reported',async()=>{
  const result=await runner.run({name:'large',executable:process.execPath,args:['-e',"process.stdout.write('x'.repeat(3*1024*1024))"]},'hello',process.cwd());
  assert.match(result.reason,/2 MB/);assert.ok(Buffer.byteLength(result.stdout)<=2*1024*1024);
 });
+
+test('English descriptions name operands without guessing program intent',()=>{
+ assert.match(english.instruction({mnemonic:'mov',operands:'eax, 0x2a'}).english,/Copy the number 0x2a into register eax/);
+ assert.match(english.instruction({mnemonic:'mov',operands:'rax, qword ptr [rbx + 8]'}).english,/memory at qword ptr/);
+ assert.match(english.instruction({mnemonic:'lea',operands:'rax, [rbx + 8]'}).english,/do not read the contents/);
+ assert.match(english.instruction({mnemonic:'sub',operands:'rsp, 0x20'}).english,/Subtract the number 0x20 from register rsp/);
+ assert.match(english.instruction({mnemonic:'jne',operands:'0x1000'}).english,/zero flag is clear/);
+ assert.match(english.instruction({mnemonic:'jrcxz',operands:'0x1000'}).english,/RCX register is zero/);
+ assert.doesNotMatch(english.instruction({mnemonic:'cmp',operands:'eax, ebx'}).english,/equal/);
+ assert.equal(english.instruction({mnemonic:'vzeroupper'}).certainty,'unsupported');
+});
