@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 const {packager}=require('@electron/packager');
 const path=require('node:path');
+const fs=require('node:fs');
+for(const name of ['STUDIO-NATIVE-LICENSE.txt','CAPSTONE-LICENSE.txt','PEFILE-LICENSE.txt','PYTHON-LICENSE.txt','PYINSTALLER-COPYING.txt']){
+ const file=path.resolve(__dirname,'../desktop-resources/studio-native',name);
+ if(!fs.existsSync(file)||!fs.statSync(file).size)throw Error('Missing native runtime notice: '+name);
+}
 packager({dir:__dirname,out:path.resolve(__dirname,'../release'),name:'REA Studio',executableName:'REA Studio',platform:'win32',arch:'x64',overwrite:true,asar:true,prune:true,icon:path.join(__dirname,'icon.ico'),extraResource:[path.resolve(__dirname,'../desktop-resources/engine'),path.resolve(__dirname,'../desktop-resources/runtime'),path.resolve(__dirname,'../desktop-resources/studio-native')],ignore:[/^\/(package|smoke-test|native-smoke-test|focused-smoke-test|large-native-smoke-test|single-instance-smoke-test|assistance-smoke-test|assistance\.test|engine-info\.test|result-store\.test|graph-layout\.test)\.cjs$/],win32metadata:{CompanyName:'REA Studio',FileDescription:'REA Studio desktop workspace',ProductName:'REA Studio',InternalName:'REAStudio'}}).then(paths=>console.log(paths)).catch(e=>{console.error(e);process.exitCode=1;});
