@@ -30,3 +30,10 @@ worker.py now provides a reusable Windows CLI taking explicit Ghidra root, java.
 Each run retains its owned directory/logs/input copy; Ghidra is asked to delete its temporary project on normal completion. Interrupted runs may retain partial projects; managed storage cleanup remains pending. Errors return a separate worker-error JSON schema and nonzero exit. Ghidra outcomes stay distinct from worker failures. Report validation and source rehash precede successful return. Helper stderr does not contaminate parsed JVM-option stdout.
 
 Seven unit/process tests pass locally, including timeout killing an owned descendant; added to Windows CI (remote CI not claimed run). Real Ghidra12.1.4 checks passed: wrong hash, headless cancellation, timeout, restart extraction and source replacement during analysis. A real java -version process verified the output cap. Final CLI extraction passed after shared-deadline change. Evidence: verification/decompiler-worker. Selected-function UI/setup, frozen worker packaging and instruction-to-pseudocode mapping remain pending; installed desktop app unchanged.
+
+
+## Standalone worker packaging — 2026-10-18
+
+build.ps1 runs seven worker/protocol tests, then builds an onedir studio-decompiler.exe with PyInstaller and bundles StudioDecompile.java. Python, PyInstaller COPYING and original Studio notices accompany the binary. Ghidra and Java remain explicitly selected external installations. The desktop app does not yet invoke this worker.
+
+Verified real Ghidra cancellation via --cancel-file and subsequent successful pseudocode extraction through the packaged EXE; evidence verification/decompiler-frozen. No Python command is invoked by the packaged worker. This is development-PC verification, not a clean Windows machine test. Worker bundle:60 files,19671226 bytes; executable SHA256290fe6cad1cf829989c9f9e0929b09b6778868ac1905b5e2ea8be32fd4023fe5. Build output remains ignored, not committed.
