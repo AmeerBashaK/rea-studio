@@ -190,3 +190,12 @@ ipcMain.handle('export-source-explanation',async(_e,payload)=>{
  try{await fs.writeFile(temp,JSON.stringify(report,null,2));await fs.rename(temp,r.filePath);}finally{await fs.rm(temp,{force:true}).catch(()=>{});}
  return true;
 });
+
+const {DecompilerService}=require('./decompiler-service.cjs');
+const decompiler=new DecompilerService({home:app.getPath('userData'),binary:app.isPackaged?path.join(process.resourcesPath,'studio-decompiler','studio-decompiler.exe'):path.resolve(__dirname,'../desktop-resources/studio-decompiler/studio-decompiler.exe'),analysis:id=>results().summary(id)});
+ipcMain.handle('decompiler-status',()=>decompiler.status());
+ipcMain.handle('decompiler-save',(_e,value)=>decompiler.save(value));
+ipcMain.handle('decompiler-pick',async(_e,kind)=>{if(!['ghidra','java'].includes(kind))throw Error('Invalid tool type.');const r=await dialog.showOpenDialog(win,{properties:[kind==='ghidra'?'openDirectory':'openFile'],...(kind==='java'?{filters:[{name:'Java executable',extensions:['exe']}]}:{})});return r.canceled?null:r.filePaths[0];});
+ipcMain.handle('decompiler-run',(_e,value)=>decompiler.run(value));
+ipcMain.handle('decompiler-stop',()=>decompiler.stop());
+app.on('before-quit',()=>decompiler.kill());

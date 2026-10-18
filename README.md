@@ -87,3 +87,10 @@ Arguments follow the [official Claude Code CLI reference](https://code.claude.co
 ### Source-line explanation exports
 
 Select source preview lines and choose the explanation action, then explicitly run your configured AI CLI. The prepared prompt requests a section summary and numbered JSON explanations including uncertainty. On successful exit, REA checks JSON structure and exact ordered line coverage. Export line explanations saves a separate `rea-source-explanation/1` JSON file with selected preview text, line numbers, provider name and unverified explanations. This checks format, not semantic correctness. Malformed/missing/duplicate lines block export; original evidence is unchanged. Source preview line endings are normalized; this is not a byte-for-byte source archive. Editing the prepared prompt disables structured processing for that run. Provider wrappers and Markdown-fenced responses are not automatically parsed. No authenticated provider certification yet.
+
+
+### Local Ghidra decompiler (development source)
+
+The Decompiler tab accepts an existing Ghidra release folder and java.exe. Select a function in Native workspace and click Decompile selected function. REA invokes its bundled standalone worker for static analysis and displays C-like pseudocode, status, engine version and warnings. Stop requests cancellation; completed reports are retained under the application profile's decompilations directory and linked to the native analysis. Reports are not yet browseable/reopenable in the UI. A changed target is rejected using its analysis hash. Ghidra/Java must be installed separately; no global Python installation is required.
+
+Verified locally with official Ghidra12.1.4 and AdoptiumJava25: setup persistence, real cancellation/restart, selected-function validation, saved result and target replacement rejection. Ghidra type/return inference can be wrong. Instruction-to-pseudocode mapping and clean-machine acceptance remain pending. Installed1.1.0 and the previously packaged1.2.0 have not been upgraded with this feature yet.

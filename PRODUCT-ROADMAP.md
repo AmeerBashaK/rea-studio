@@ -18,7 +18,9 @@ Development source now supports hash-checked focused decoding, parent-linked res
 
 Acceptance: navigate outside the initial budget, cancel/restart work, reopen a project, detect input replacement, and export consistent observations without freezing the UI. Record large-file wall time, CPU and whole-process-family memory.
 
-## 3. Free decompilation — pending
+## 3. Free decompilation — development integration verified
+
+Development source now provides Ghidra setup, selected-function pseudocode, cancellation/restart, input hash guards and saved provenance through a standalone worker. Real desktop acceptance passed with Ghidra12.1.4/Java25. Report browsing, instruction mapping and packaged/clean-machine acceptance remain pending. Installed1.1.0 does not include it.
 
 Integrate a compatible free local decompiler, most practically Ghidra, with a transparent setup/status screen and explicit engine provenance. Keep independent assembly available when the decompiler is absent. Do not market third-party pseudocode as an independently implemented decompiler. Track setup compatibility per release and preserve the user's existing tool installations.
 
