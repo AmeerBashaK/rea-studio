@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Headless post-script: StudioDecompile.java <hex-address> <output-json>
-// Prototype: compilation and real-Ghidra acceptance are pending.
+// Verified with Ghidra 12.1.4; see README for the acceptance scope.
 import ghidra.app.script.GhidraScript;
 import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileResults;
@@ -43,6 +43,7 @@ public class StudioDecompile extends GhidraScript {
                         report.addProperty("status", "output-limit");
                     } else {
                         report.addProperty("status", "complete");
+                        report.addProperty("message", String.valueOf(result.getErrorMessage()));
                         report.addProperty("name", function.getName());
                         report.addProperty("code", code);
                     }
